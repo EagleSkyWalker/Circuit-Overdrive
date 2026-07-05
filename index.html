@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Circuit Overdrive</title>
+  <!-- Google Fonts for futuristic HUD typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Game Container to lock 16:9 aspect ratio -->
+  <div id="game-container">
+    
+    <!-- The HTML5 canvas where the game board is rendered -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top Sliding Notification Banner -->
+    <div id="top-notification" class="notification-banner glass-panel hidden">
+      <span id="notif-text">WAVE REWARD: +0QB</span>
+    </div>
+
+    <!-- Sleek Glassmorphic HUD overlay -->
+    <div id="hud" class="hud-layer hidden">
+      <div class="hud-stat" id="stat-bits">
+        <span class="label">QUBITS</span>
+        <span class="value" id="val-bits">0000</span>
+      </div>
+      <div class="hud-stat" id="stat-integrity">
+        <span class="label">KERNEL HP</span>
+        <span class="value" id="val-integrity">100%</span>
+        <div class="hp-bar-container"><div id="hp-bar-fill"></div></div>
+      </div>
+      <div class="hud-stat" id="stat-wave">
+        <span class="label">WAVE</span>
+        <span class="value" id="val-wave">0</span>
+      </div>
+      <div class="hud-controls">
+        <button id="btn-next-wave" class="hud-btn glow-btn">NEXT WAVE</button>
+      </div>
+    </div>
+
+    <!-- Floating Tower Stats Monitor (Top Right) -->
+    <div id="tower-monitor" class="monitor-panel glass-panel hidden">
+      <div class="monitor-header">
+        <span id="mon-title" class="neon-cyan">TOWER MONITOR</span>
+        <button id="btn-close-monitor" class="small-close">&times;</button>
+      </div>
+      <div class="monitor-content">
+        <div class="mon-row"><span>Type:</span> <span id="mon-type">Socket</span></div>
+        <div class="mon-row"><span>Status:</span> <span id="mon-status" class="neon-green">ACTIVE</span></div>
+        <div class="mon-row"><span>HP:</span> <span id="mon-hp" class="neon-green">100/100</span></div>
+        <div class="mon-row"><span>Damage:</span> <span id="mon-dmg" class="neon-red">0</span></div>
+        <div class="mon-row"><span>Clock Rate:</span> <span id="mon-speed" class="neon-purple">0/s</span></div>
+        <div class="mon-row"><span>Range:</span> <span id="mon-range" class="neon-cyan">0 Tiles</span></div>
+        <div class="mon-row"><span>Cooling:</span> <span id="mon-cooling" class="neon-green">0°C/s</span></div>
+        <div class="mon-row"><span>Wattage:</span> <span id="mon-wattage">0W/0W</span></div>
+        <div class="mon-row"><span>Temp:</span> <span id="mon-temp" class="neon-cyan">30°C</span></div>
+        
+        <div class="mon-components-section">
+          <div id="btn-toggle-hardware" class="sec-header-toggle">
+            <span class="sec-lbl">HARDWARE SLOTS</span>
+            <span id="hardware-toggle-icon" class="toggle-icon">▶</span>
+          </div>
+          <div id="hardware-list-container" class="collapsed">
+            <ul id="mon-hardware-list">
+              <li>No motherboard installed</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom HUD Hotbar UI Tooltip -->
+    <div id="hotbar-tooltip" class="tooltip-bar-layer hidden">
+      Select an item to view specifications.
+    </div>
+
+    <!-- Bottom HUD Hotbar UI (Mobile Friendly) -->
+    <div id="bottom-bar" class="bottom-bar-layer hidden">
+      <!-- Mode Toggle Button -->
+      <button id="btn-mode-toggle" class="mode-btn buy-mode">
+        <span class="mode-lbl">MODE</span>
+        <span class="mode-state" id="val-mode">BUY</span>
+      </button>
+
+      <!-- The Hotbar Slots container -->
+      <div id="hotbar">
+        <!-- Slot 1: Socket -->
+        <button class="hotbar-slot slot-socket" data-slot="socket">
+          <span class="slot-lbl">SOCKET</span>
+          <span class="slot-cost">20QB</span>
+          <div class="slot-badge" id="stock-socket">0</div>
+        </button>
+
+        <!-- Slot 2: Case Mini -->
+        <button class="hotbar-slot slot-case" data-slot="case-basic">
+          <span class="slot-lbl">CASE(ITX)</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-badge" id="stock-case-basic">0</div>
+        </button>
+
+        <!-- Slot 3: Case Gaming -->
+        <button class="hotbar-slot slot-case" data-slot="case-gaming">
+          <span class="slot-lbl">CASE(ATX)</span>
+          <span class="slot-cost">80QB</span>
+          <div class="slot-badge" id="stock-case-gaming">0</div>
+        </button>
+
+        <!-- Slot 4: Board Mini -->
+        <button class="hotbar-slot slot-mb" data-slot="mb-mini">
+          <span class="slot-lbl">MB(ITX)</span>
+          <span class="slot-cost">45QB</span>
+          <div class="slot-badge" id="stock-mb-mini">0</div>
+        </button>
+
+        <!-- Slot 5: Board Gaming -->
+        <button class="hotbar-slot slot-mb" data-slot="mb-atx">
+          <span class="slot-lbl">MB(ATX)</span>
+          <span class="slot-cost">100QB</span>
+          <div class="slot-badge" id="stock-mb-atx">0</div>
+        </button>
+
+        <!-- Slot 6: CPU (i5) -->
+        <button class="hotbar-slot slot-cpu" data-slot="cpu">
+          <span class="slot-lbl">CPU(I5)</span>
+          <span class="slot-cost">30QB</span>
+          <div class="slot-badge" id="stock-cpu">0</div>
+        </button>
+
+        <!-- Slot 6b: CPU (i9 Extreme) -->
+        <button class="hotbar-slot slot-cpu-extreme" data-slot="cpu-extreme">
+          <span class="slot-lbl">CPU(I9)</span>
+          <span class="slot-cost">65QB</span>
+          <div class="slot-badge" id="stock-cpu-extreme">0</div>
+        </button>
+
+        <!-- Slot 7: RAM -->
+        <button class="hotbar-slot slot-ram" data-slot="ram">
+          <span class="slot-lbl">RAM</span>
+          <span class="slot-cost">25QB</span>
+          <div class="slot-badge" id="stock-ram">0</div>
+        </button>
+
+        <!-- Slot 8: GPU -->
+        <button class="hotbar-slot slot-gpu" data-slot="gpu">
+          <span class="slot-lbl">GPU</span>
+          <span class="slot-cost">50QB</span>
+          <div class="slot-badge" id="stock-gpu">0</div>
+        </button>
+
+        <!-- Slot 9: PSU -->
+        <button class="hotbar-slot slot-psu" data-slot="psu">
+          <span class="slot-lbl">PSU</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-badge" id="stock-psu">0</div>
+        </button>
+
+        <!-- Slot 10: Cooler -->
+        <button class="hotbar-slot slot-cooler" data-slot="cooler">
+          <span class="slot-lbl">COOLER</span>
+          <span class="slot-cost">35QB</span>
+          <div class="slot-badge" id="stock-cooler">0</div>
+        </button>
+
+        <!-- Slot 11: Repair Tool -->
+        <button class="hotbar-slot danger-slot slot-repair" data-slot="repair">
+          <span class="slot-lbl">REPAIR</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-badge" id="stock-repair">0</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Title Menu Screen -->
+    <div id="main-menu" class="overlay">
+      <h1 class="glow-text">CIRCUIT OVERDRIVE</h1>
+      <p class="subtitle">Component-Building Tower Defense</p>
+      <button id="btn-start" class="glow-btn">INITIALIZE SYSTEM</button>
+      <div class="menu-notes">
+        <p>Landscape mode recommended. Tap slots to BUY items first, then toggle to BUILD mode and select a map cell to place them in sequence (Socket → Case → Motherboard → Parts).</p>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over" class="overlay hidden">
+      <h2 class="alert-text">SYSTEM KERNEL BREACHED</h2>
+      <p class="subtitle">The Malware has corrupted your core files.</p>
+      <div id="game-stats">
+        <p>Waves Survived: <span id="stat-final-waves" class="neon-green">0</span></p>
+        <p>Total Bits Collected: <span id="stat-final-bits" class="neon-cyan">0</span></p>
+      </div>
+      <button id="btn-restart" class="glow-btn">REBOOT KERNEL</button>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Entrypoints -->
+  <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/entities.js"></script>
+  <script type="module" src="js/canvas.js"></script>
+  <script type="module" src="js/input.js"></script>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
