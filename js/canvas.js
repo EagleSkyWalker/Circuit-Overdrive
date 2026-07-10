@@ -107,6 +107,11 @@ export class GameRenderer {
       this.drawActiveBuildCell(gameState.activeBuildCell.x, gameState.activeBuildCell.y);
     }
 
+    // 3c. Draw Tutorial Target Highlight and Arrow
+    if (gameState.tutorial && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
+      this.drawTutorialTarget(9, 5);
+    }
+
     // 4. Draw Towers (Cases)
     gameState.towers.forEach(tower => {
       this.drawTower(tower, selectedTower === tower);
@@ -396,6 +401,38 @@ export class GameRenderer {
     this.ctx.restore();
   }
 
+  drawTutorialTarget(gridX, gridY) {
+    this.ctx.save();
+    const size = CONFIG.GRID.CELL_SIZE;
+    const x = gridX * size + size / 2;
+    const y = gridY * size + size / 2;
+    
+    // Glowing neon cyan border around the cell
+    const pulse = Math.abs(Math.sin(Date.now() * 0.005)) * 6 + 4;
+    this.ctx.strokeStyle = '#00ffcc';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.shadowBlur = pulse;
+    this.ctx.shadowColor = '#00ffcc';
+    this.ctx.strokeRect(gridX * size + 4, gridY * size + 4, size - 8, size - 8);
+    
+    // Drifting down-pointing arrow
+    const arrowOffset = Math.sin(Date.now() * 0.005) * 8 - 12;
+    const arrowX = x;
+    const arrowY = y - size / 2 + arrowOffset;
+    
+    this.ctx.fillStyle = '#00ffcc';
+    this.ctx.beginPath();
+    this.ctx.moveTo(arrowX - 8, arrowY - 8);
+    this.ctx.lineTo(arrowX + 8, arrowY - 8);
+    this.ctx.lineTo(arrowX, arrowY);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    this.ctx.fillRect(arrowX - 3, arrowY - 20, 6, 12);
+    
+    this.ctx.restore();
+  }
+
   drawTower(tower, isSelected) {
     this.ctx.save();
     
@@ -406,7 +443,7 @@ export class GameRenderer {
     // Pulse animation factor
     const pulseGlow = Math.abs(Math.sin(this.pulseTimer)) * 6 + 3;
 
-    // --- LEVEL 1: SOCKET ONLY ---
+    // --- LEVEL 1: INTERFACE PAD ONLY ---
     if (!tower.hasCase) {
       // Draw a flat metal/copper PCB grounding pad
       this.ctx.fillStyle = '#101520';
@@ -422,7 +459,7 @@ export class GameRenderer {
       this.ctx.fillStyle = '#d4af37'; // gold pins
       for (let ox = -15; ox <= 15; ox += 10) {
         for (let oy = -15; oy <= 15; oy += 10) {
-          // Leave center empty for CPU socket style
+          // Leave center empty for CPU style
           if (Math.abs(ox) < 10 && Math.abs(oy) < 10) continue;
           this.ctx.beginPath();
           this.ctx.arc(tx + ox, ty + oy, 1.2, 0, Math.PI * 2);
@@ -435,7 +472,7 @@ export class GameRenderer {
         this.ctx.fillStyle = 'rgba(0, 255, 204, 0.8)';
         this.ctx.font = '8px "Share Tech Mono"';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText("EMPTY SOCKET", tx, ty + 35);
+        this.ctx.fillText("INTERFACE PAD", tx, ty + 35);
       }
       this.ctx.restore();
       return;

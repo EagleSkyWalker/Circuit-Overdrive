@@ -2,6 +2,9 @@ import CONFIG from './config.js';
 import { PcTower, MalwareEnemy, LaserProjectile } from './entities.js';
 import GameRenderer from './canvas.js';
 import InputHandler from './input.js';
+import LevelManager from './levels.js';
+import SYSOPHandler from './sysop.js';
+import TutorialController from './tutorial.js';
 
 class GameController {
   constructor() {
@@ -16,6 +19,12 @@ class GameController {
       (col, row) => this.handleCellClick(col, row),
       (cell) => this.handleCellHover(cell)
     );
+    
+    // Modular progression and tutorial handlers
+    this.levelManager = new LevelManager();
+    this.sysop = new SYSOPHandler();
+    this.tutorial = null; // initialized per level if tutorial
+    this.currentLevel = null;
     
     // Game state variables
     this.bits = CONFIG.STARTING_BITS;
@@ -80,12 +89,34 @@ class GameController {
 
   setupUI() {
     // Menu buttons
-    document.getElementById('btn-start').addEventListener('click', () => this.startGame());
+    document.getElementById('btn-start').addEventListener('click', () => this.showLevelSelect());
+    document.getElementById('btn-back-menu').addEventListener('click', () => this.showMainMenu());
+    document.getElementById('btn-reset-progress').addEventListener('click', () => {
+      if (confirm("Are you sure you want to format BIOS partition records? This will delete all completed Sector history and re-lock advanced Sectors!")) {
+        localStorage.removeItem('circuit_overdrive_unlocked_level');
+        this.levelManager.unlockedLevel = 1;
+        this.updateLevelSelectUI();
+      }
+    });
     document.getElementById('btn-restart').addEventListener('click', () => this.restartGame());
     document.getElementById('btn-next-wave').addEventListener('click', () => this.startNextWave());
     document.getElementById('btn-close-monitor').addEventListener('click', () => this.deselectTower());
     document.getElementById('btn-toggle-hardware').addEventListener('click', () => this.toggleHardwareExpanded());
     
+    // Level selection cards click handlers
+    document.querySelectorAll('.level-card').forEach(card => {
+      const levelId = parseInt(card.getAttribute('data-level'), 10);
+      card.addEventListener('click', () => {
+        if (this.levelManager.isUnlocked(levelId)) {
+          this.startLevel(levelId);
+        }
+      });
+    });
+
+    // Victory popup button bindings
+    document.getElementById('btn-victory-continue').addEventListener('click', () => this.continueToNextLevel());
+    document.getElementById('btn-victory-select').addEventListener('click', () => this.returnToLevelSelect());
+
     // Buy/Build Mode Toggle
     document.getElementById('btn-mode-toggle').addEventListener('click', () => this.toggleUIMode());
 
@@ -114,12 +145,54 @@ class GameController {
     this.renderer.resize(w, h);
   }
 
-  startGame() {
+  showLevelSelect() {
     document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('level-select').classList.remove('hidden');
+    document.getElementById('level-victory').classList.add('hidden');
+    document.getElementById('game-over').classList.add('hidden');
+    this.updateLevelSelectUI();
+  }
+
+  showMainMenu() {
+    document.getElementById('main-menu').classList.remove('hidden');
+    document.getElementById('level-select').classList.add('hidden');
+  }
+
+  updateLevelSelectUI() {
+    this.levelManager.loadProgress(); // reload progress
+    
+    for (let id = 1; id <= 4; id++) {
+      const card = document.querySelector(`.level-card[data-level="${id}"]`);
+      if (!card) continue;
+      
+      const statusIcon = document.getElementById(`status-level-${id}`);
+      
+      if (this.levelManager.isUnlocked(id)) {
+        card.className = "level-card unlocked";
+        if (statusIcon) {
+          statusIcon.innerText = id < this.levelManager.unlockedLevel ? "✓" : "▶";
+        }
+      } else {
+        card.className = "level-card locked";
+        if (statusIcon) {
+          statusIcon.innerText = "🔒";
+        }
+      }
+    }
+  }
+
+  startLevel(levelId) {
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('level-select').classList.add('hidden');
+    document.getElementById('level-victory').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('bottom-bar').classList.remove('hidden');
     
-    this.bits = CONFIG.STARTING_BITS;
+    const lvl = this.levelManager.getLevel(levelId);
+    this.currentLevel = lvl;
+    this.levelManager.currentLevelId = levelId;
+    
+    this.bits = lvl.startingBits;
     this.kernelHp = CONFIG.KERNEL_MAX_HP;
     this.towers = [];
     this.enemies = [];
@@ -127,11 +200,6 @@ class GameController {
     this.floatingTexts = [];
     this.gpuMiningTimer = 0;
     this.waveRestTimer = 0;
-    if (this.notifTimeout) {
-      clearTimeout(this.notifTimeout);
-      this.notifTimeout = null;
-    }
-    document.getElementById('top-notification').classList.add('hidden');
     
     this.waveNumber = 0;
     this.waveActive = false;
@@ -144,14 +212,79 @@ class GameController {
       this.inventory[key] = 0;
     });
 
+    if (this.notifTimeout) {
+      clearTimeout(this.notifTimeout);
+      this.notifTimeout = null;
+    }
+    document.getElementById('top-notification').classList.add('hidden');
+
+    // Initialize tutorial if Level 1
+    if (lvl.isTutorial) {
+      this.tutorial = new TutorialController(this);
+      this.tutorial.refreshActiveInstruction();
+    } else {
+      this.tutorial = null;
+      this.sysop.hide();
+    }
+
     this.gameActive = true;
     this.updateHUD();
     this.updateHotbarUI();
     this.deselectTower();
     
-    // Show the tooltip bar and fill it with default instructions
     document.getElementById('hotbar-tooltip').classList.remove('hidden');
     this.clearSlotTooltip();
+  }
+
+  levelCleared() {
+    this.gameActive = false;
+    
+    // Save unlocked progress
+    const nextLevelId = this.levelManager.currentLevelId + 1;
+    this.levelManager.saveProgress(nextLevelId);
+    
+    // Open Victory popup
+    const victoryScreen = document.getElementById('level-victory');
+    victoryScreen.classList.remove('hidden');
+    
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('bottom-bar').classList.add('hidden');
+    document.getElementById('tower-monitor').classList.add('hidden');
+    if (this.sysop) this.sysop.hide();
+    
+    const unlockList = document.getElementById('victory-unlock-list');
+    unlockList.innerHTML = '';
+    
+    let unlocks = [];
+    if (this.levelManager.currentLevelId === 1) {
+      unlocks = ["RTX GPU MINER", "80+ PLATINUM PSU", "SECTOR 02: POWER GRID"];
+    } else if (this.levelManager.currentLevelId === 2) {
+      unlocks = ["LIQUID AIO COOLER", "CORE I9 EXTREME CPU", "SECTOR 03: LIQUID CORE"];
+    } else if (this.levelManager.currentLevelId === 3) {
+      unlocks = ["SECTOR 04: ENDLESS COMPILER"];
+    }
+    
+    unlocks.forEach(item => {
+      const badge = document.createElement('div');
+      badge.className = 'unlock-badge';
+      badge.innerText = item;
+      unlockList.appendChild(badge);
+    });
+  }
+
+  continueToNextLevel() {
+    document.getElementById('level-victory').classList.add('hidden');
+    const nextLevelId = this.levelManager.currentLevelId + 1;
+    if (nextLevelId <= 4) {
+      this.startLevel(nextLevelId);
+    } else {
+      this.showLevelSelect();
+    }
+  }
+
+  returnToLevelSelect() {
+    document.getElementById('level-victory').classList.add('hidden');
+    this.showLevelSelect();
   }
 
   showSlotTooltip(slotName) {
@@ -214,7 +347,11 @@ class GameController {
 
   restartGame() {
     document.getElementById('game-over').classList.add('hidden');
-    this.startGame();
+    if (this.currentLevel) {
+      this.startLevel(this.currentLevel.id);
+    } else {
+      this.startLevel(1);
+    }
   }
 
   gameOver() {
@@ -228,6 +365,11 @@ class GameController {
 
   // Toggles mode and clears active highlights/selections
   toggleUIMode() {
+    // Hook: Tutorial intercept checks
+    if (this.tutorial) {
+      if (!this.tutorial.canToggleMode()) return;
+    }
+
     const btn = document.getElementById('btn-mode-toggle');
     const label = document.getElementById('val-mode');
     
@@ -250,6 +392,11 @@ class GameController {
       this.selectedBuildItem = null;
     }
     
+    // Hook: Notify tutorial mode change
+    if (this.tutorial) {
+      this.tutorial.onActionTriggered('toggleMode', null);
+    }
+    
     this.updateHotbarUI();
   }
 
@@ -270,6 +417,11 @@ class GameController {
     if (!this.gameActive) return;
 
     if (this.uiMode === 'BUY') {
+      // Hook: Tutorial intercept buy checks
+      if (this.tutorial) {
+        if (!this.tutorial.canBuyItem(slotName)) return;
+      }
+
       // Spend bits to add to stock
       const cost = this.getCostOfItem(slotName);
       if (this.bits >= cost) {
@@ -277,6 +429,11 @@ class GameController {
         this.inventory[slotName]++;
         this.updateHUD();
         this.updateHotbarUI();
+
+        // Hook: Notify tutorial buy action
+        if (this.tutorial) {
+          this.tutorial.onActionTriggered('buy', slotName);
+        }
       }
     } else {
       // Build mode: Select part to build
@@ -294,6 +451,11 @@ class GameController {
   }
 
   buildItemAtCell(item, col, row) {
+    // Hook: Tutorial intercept build checks
+    if (this.tutorial) {
+      if (!this.tutorial.canBuildItem(item, col, row)) return;
+    }
+
     const tower = this.towers.find(t => t.gridX === col && t.gridY === row);
     let buildSuccess = false;
 
@@ -337,12 +499,31 @@ class GameController {
       if (tower) {
         this.selectTower(tower);
       }
+
+      // Hook: Notify tutorial build success
+      if (this.tutorial) {
+        this.tutorial.onActionTriggered('buildItem', item);
+      }
     }
   }
 
   updateHotbarUI() {
     document.querySelectorAll('.hotbar-slot').forEach(btn => {
       const slotName = btn.getAttribute('data-slot');
+      
+      // Filter out locked items in Level 1 (or other levels)
+      if (this.currentLevel) {
+        const isUnlocked = this.currentLevel.unlockedParts.includes(slotName);
+        if (!isUnlocked) {
+          btn.style.display = 'none';
+          return;
+        } else {
+          btn.style.display = 'flex';
+        }
+      } else {
+        btn.style.display = 'flex';
+      }
+
       const cost = this.getCostOfItem(slotName);
       const stock = this.inventory[slotName];
 
@@ -394,6 +575,11 @@ class GameController {
   handleCellClick(col, row) {
     if (!this.gameActive) return;
 
+    // Hook: Tutorial intercept cell click checks
+    if (this.tutorial) {
+      if (!this.tutorial.canClickCell(col, row)) return;
+    }
+
     const tower = this.towers.find(t => t.gridX === col && t.gridY === row);
 
     if (this.uiMode === 'BUILD') {
@@ -404,6 +590,11 @@ class GameController {
         this.selectTower(tower);
       } else {
         this.deselectTower();
+      }
+      
+      // Hook: Notify tutorial cell selection
+      if (this.tutorial) {
+        this.tutorial.onActionTriggered('selectCell', this.activeBuildCell);
       }
       
       // If we already have a build item selected, try to place it
@@ -639,6 +830,11 @@ class GameController {
   startNextWave() {
     if (this.waveActive) return;
     
+    // Hook: Notify tutorial wave start
+    if (this.tutorial) {
+      this.tutorial.onActionTriggered('startWave', null);
+    }
+    
     // If wave has started and we are resting, award overclocking bonus
     if (this.waveNumber > 0 && this.waveRestTimer > 0) {
       const bonusQB = Math.ceil(this.waveRestTimer);
@@ -652,24 +848,33 @@ class GameController {
     this.updateHUD();
 
     // Generate wave queue
-    this.spawnQueue = [];
-    
-    let glitches = 5 + this.waveNumber * 2;
-    let worms = this.waveNumber > 2 ? 3 + this.waveNumber : 0;
-    let trojans = this.waveNumber > 5 ? Math.floor(this.waveNumber / 2) : 0;
+    if (this.currentLevel) {
+      this.spawnQueue = this.currentLevel.waveSetup(this.waveNumber);
+    } else {
+      this.spawnQueue = [];
+      let glitches = 5 + this.waveNumber * 2;
+      let worms = this.waveNumber > 2 ? 3 + this.waveNumber : 0;
+      let trojans = this.waveNumber > 5 ? Math.floor(this.waveNumber / 2) : 0;
 
-    for (let i = 0; i < glitches; i++) this.spawnQueue.push('glitch');
-    for (let i = 0; i < worms; i++) this.spawnQueue.push('worm');
-    for (let i = 0; i < trojans; i++) this.spawnQueue.push('trojan');
+      for (let i = 0; i < glitches; i++) this.spawnQueue.push('glitch');
+      for (let i = 0; i < worms; i++) this.spawnQueue.push('worm');
+      for (let i = 0; i < trojans; i++) this.spawnQueue.push('trojan');
 
-    this.spawnQueue.sort(() => Math.random() - 0.5);
+      this.spawnQueue.sort(() => Math.random() - 0.5);
+    }
     
     this.spawnTimer = 0;
   }
 
   updateHUD() {
     document.getElementById('val-bits').innerText = String(Math.floor(this.bits)).padStart(4, '0');
-    document.getElementById('val-wave').innerText = this.waveNumber;
+    
+    const waveEl = document.getElementById('val-wave');
+    if (this.currentLevel && this.currentLevel.waves !== Infinity) {
+      waveEl.innerText = `${this.waveNumber} / ${this.currentLevel.waves}`;
+    } else {
+      waveEl.innerText = this.waveNumber;
+    }
     
     const hpPct = Math.max(0, (this.kernelHp / this.kernelMaxHp) * 100);
     document.getElementById('val-integrity').innerText = `${Math.round(hpPct)}%`;
@@ -837,7 +1042,17 @@ class GameController {
 
     // 4. Update Towers
     this.towers.forEach(tower => {
+      const prevStatus = tower.status;
       tower.update(dt, this.enemies, (sx, sy, t, d) => this.spawnProjectile(sx, sy, t, d));
+      
+      // If status changed to throttled or overloaded, trigger SYS-OP warnings
+      if (tower.status !== prevStatus && this.sysop) {
+        if (tower.status === 'overloaded') {
+          this.sysop.showError("[FATAL ERROR] INTELLECT LIMIT EXCEEDED! Look at the amber lightning symbol flashing in your face! The motherboard wattage cap is blown! The whole sector just went dead! Install a PSU before I format your hard drive!");
+        } else if (tower.status === 'throttled') {
+          this.sysop.showError("[FATAL ERROR] IT'S MELTING! Your CPU core is running at 100°C and the orange fire badge is glowing! The chips are frying themselves alive! Deploy a Liquid AIO Cooler to initiate a heat dissipation cycle before we smell burning silicon!");
+        }
+      }
     });
 
     // 5. Update Projectiles
@@ -852,6 +1067,13 @@ class GameController {
     // 6. Check if wave completed
     if (this.waveActive && this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.waveActive = false;
+      
+      // Check for Level Sector Clear condition
+      if (this.currentLevel && this.waveNumber >= this.currentLevel.waves) {
+        this.levelCleared();
+        return;
+      }
+      
       this.waveRestTimer = 120.0; // 120 seconds of recovery rest time
       
       const reward = 50 + this.waveNumber * 10;

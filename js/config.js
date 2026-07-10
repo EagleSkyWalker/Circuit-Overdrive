@@ -42,7 +42,7 @@ export const CONFIG = {
   
   // Base Socket
   SOCKET: {
-    name: "Socket Base",
+    name: "Interface Pad",
     cost: 20
   },
 

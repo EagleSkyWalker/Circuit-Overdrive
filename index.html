@@ -89,9 +89,9 @@
 
       <!-- The Hotbar Slots container -->
       <div id="hotbar">
-        <!-- Slot 1: Socket -->
+        <!-- Slot 1: Interface Pad -->
         <button class="hotbar-slot slot-socket" data-slot="socket">
-          <span class="slot-lbl">SOCKET</span>
+          <span class="slot-lbl">PAD</span>
           <span class="slot-cost">20QB</span>
           <div class="slot-badge" id="stock-socket">0</div>
         </button>
@@ -175,20 +175,93 @@
       </div>
     </div>
 
+    <!-- SYS-OP Tutorial Advisor (Top Banner) -->
+    <div id="sysop-panel" class="sysop-panel glass-panel hidden">
+      <div id="sysop-avatar-wrapper" class="sysop-avatar-wrapper">
+        <svg class="sysop-avatar" viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" rx="10" fill="none" stroke="currentColor" stroke-width="2.5" class="avatar-frame"/>
+          <line x1="30" y1="42" x2="45" y2="42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" class="avatar-eye left"/>
+          <line x1="55" y1="42" x2="70" y2="42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" class="avatar-eye right"/>
+          <path d="M 35 63 Q 50 63 65 63" stroke="currentColor" stroke-width="3.5" fill="none" stroke-linecap="round" class="avatar-mouth"/>
+        </svg>
+      </div>
+      <div class="sysop-content">
+        <div id="sysop-title" class="sysop-title neon-purple">SYS-OP // SEC-BIOS</div>
+        <p id="sysop-text" class="sysop-text">Initializing Security BIOS diagnostics...</p>
+      </div>
+    </div>
+
     <!-- Main Title Menu Screen -->
     <div id="main-menu" class="overlay">
       <h1 class="glow-text">CIRCUIT OVERDRIVE</h1>
       <p class="subtitle">Component-Building Tower Defense</p>
-      <button id="btn-start" class="glow-btn">INITIALIZE SYSTEM</button>
+      <button id="btn-start" class="glow-btn">SELECT SECTOR</button>
       <div class="menu-notes">
-        <p>Landscape mode recommended. Tap slots to BUY items first, then toggle to BUILD mode and select a map cell to place them in sequence (Socket → Case → Motherboard → Parts).</p>
+        <p>Landscape mode recommended. Build custom hardware servers directly on the circuit board to filter out malware packets before they compromise the Kernel BIOS.</p>
+      </div>
+    </div>
+
+    <!-- Sector Level Selection Screen -->
+    <div id="level-select" class="overlay hidden">
+      <h2 class="glow-text">SELECT SYSTEM SECTOR</h2>
+      <p class="subtitle">Choose a partition to deploy hardware defenses.</p>
+      
+      <div class="level-cards-container">
+        <!-- Level 1 -->
+        <div class="level-card unlocked" data-level="1">
+          <div class="level-card-header">
+            <span class="level-num neon-purple">SECTOR 01</span>
+            <span class="level-status-icon" id="status-level-1">✓</span>
+          </div>
+          <h3>System Boot</h3>
+          <p class="level-desc">Diagnostics sweep on a fresh sector. Build your first tower pad-by-pad with SYS-OP guidance.</p>
+          <div class="level-info">Difficulty: EASY | Reward: GPU / PSU Unlocks</div>
+        </div>
+        
+        <!-- Level 2 -->
+        <div class="level-card locked" id="card-level-2" data-level="2">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 02</span>
+            <span class="level-status-icon" id="status-level-2">🔒</span>
+          </div>
+          <h3>Power Grid</h3>
+          <p class="level-desc">Balance the regulator wattage limits. Deploy PSUs and run active RTX cryptominers.</p>
+          <div class="level-info">Difficulty: MEDIUM | Reward: Liquid Cooling / i9 Unlocks</div>
+        </div>
+        
+        <!-- Level 3 -->
+        <div class="level-card locked" id="card-level-3" data-level="3">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 03</span>
+            <span class="level-status-icon" id="status-level-3">🔒</span>
+          </div>
+          <h3>Liquid Core</h3>
+          <p class="level-desc">Fight heavy Trojan worm payloads with extreme Core i9 processors and Liquid Coolers.</p>
+          <div class="level-info">Difficulty: HARD | Reward: Endless Compiler</div>
+        </div>
+        
+        <!-- Level 4 -->
+        <div class="level-card locked" id="card-level-4" data-level="4">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 04</span>
+            <span class="level-status-icon" id="status-level-4">🔒</span>
+          </div>
+          <h3>Endless Compiler</h3>
+          <p class="level-desc">Defend against scaling malware loads indefinitely on a randomly compiled circuit board.</p>
+          <div class="level-info">Difficulty: VARIABLE | Reward: Quantum High Scores</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; margin-top: 25px;">
+        <button id="btn-back-menu" class="glow-btn outline-btn">BACK</button>
+        <button id="btn-reset-progress" class="glow-btn outline-btn danger-btn" style="border-color: var(--neon-red); color: var(--neon-red);">FORMAT DATA</button>
       </div>
     </div>
 
     <!-- Game Over Screen -->
     <div id="game-over" class="overlay hidden">
       <h2 class="alert-text">SYSTEM KERNEL BREACHED</h2>
-      <p class="subtitle">The Malware has corrupted your core files.</p>
+      <p class="subtitle">Malware files have corrupted your core BIOS partitions.</p>
       <div id="game-stats">
         <p>Waves Survived: <span id="stat-final-waves" class="neon-green">0</span></p>
         <p>Total Bits Collected: <span id="stat-final-bits" class="neon-cyan">0</span></p>
@@ -196,10 +269,31 @@
       <button id="btn-restart" class="glow-btn">REBOOT KERNEL</button>
     </div>
 
+    <!-- Level Cleared Victory Screen -->
+    <div id="level-victory" class="overlay hidden">
+      <h2 class="victory-title neon-green">SECTOR DIAGNOSTIC CLEARED</h2>
+      <p class="subtitle">Diagnostics return stable states. BIOS integrity restored.</p>
+      
+      <div class="victory-unlocks">
+        <h3 class="neon-purple" style="font-family: var(--font-hud); font-size: 0.95rem; margin-bottom: 8px;">UNLOCKED HARDWARE / TECHNOLOGY:</h3>
+        <div class="unlock-items" id="victory-unlock-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      
+      <div class="victory-buttons" style="display: flex; gap: 15px; margin-top: 20px;">
+        <button id="btn-victory-continue" class="glow-btn">NEXT SECTOR</button>
+        <button id="btn-victory-select" class="glow-btn outline-btn">SECTOR SELECT</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- JavaScript Entrypoints -->
   <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/levels.js"></script>
+  <script type="module" src="js/sysop.js"></script>
+  <script type="module" src="js/tutorial.js"></script>
   <script type="module" src="js/entities.js"></script>
   <script type="module" src="js/canvas.js"></script>
   <script type="module" src="js/input.js"></script>

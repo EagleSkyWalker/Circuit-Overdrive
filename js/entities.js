@@ -71,7 +71,7 @@ export class PcTower {
     this.caseType = null;
     this.motherboard = null; // Needs to be installed next
     
-    this.hp = CONFIG.SOCKET.cost; // Socket HP starts at 30
+    this.hp = CONFIG.SOCKET.cost; // Interface Pad HP starts at 20
     this.maxHp = 30;
     this.name = CONFIG.SOCKET.name;
     
@@ -254,7 +254,11 @@ export class PcTower {
     const mb = this.motherboard;
     const hasActiveComponents = mb && (mb.installed.cpu.length > 0 || mb.installed.gpu.length > 0);
 
-    if (hasActiveComponents) {
+    // Disable heating in Sector 1 System Boot tutorial
+    const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
+    if (isLvl1) {
+      this.heat = 30;
+    } else if (hasActiveComponents) {
       if (this.status === 'active') {
         heatGeneration = 0.5; // ambient motherboard running heat
         
@@ -317,11 +321,14 @@ export class PcTower {
         spawnProjectileCallback(this.x, this.y, target, this.damage);
         this.cooldownTimer = this.fireCooldown;
         
-        // Firing CPU generates immediate heat spike
-        let fireHeat = 0;
-        this.motherboard.installed.cpu.forEach(c => { fireHeat += c.stats.heat; });
-        this.motherboard.installed.ram.forEach(r => { fireHeat += r.stats.heat; });
-        this.heat += fireHeat;
+        // Firing CPU generates immediate heat spike (disabled in Sector 1 tutorial)
+        const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
+        if (!isLvl1) {
+          let fireHeat = 0;
+          this.motherboard.installed.cpu.forEach(c => { fireHeat += c.stats.heat; });
+          this.motherboard.installed.ram.forEach(r => { fireHeat += r.stats.heat; });
+          this.heat += fireHeat;
+        }
       }
     }
   }
