@@ -1,9 +1,13 @@
 import CONFIG from './config.js';
+import Camera from './camera.js';
 
 export class GameRenderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    
+    // Camera Navigation System
+    this.camera = new Camera();
     
     // Scale tracking
     this.scale = 1;
@@ -58,10 +62,9 @@ export class GameRenderer {
   screenToLogical(screenX, screenY) {
     const logicalX = screenX / this.scale;
     const logicalY = screenY / this.scale;
-    return {
-      x: (logicalX - 128) / 0.8,
-      y: (logicalY - 20) / 0.8
-    };
+    const baseLx = (logicalX - 128) / 0.8;
+    const baseLy = (logicalY - 20) / 0.8;
+    return this.camera.toLogicalSpace(baseLx, baseLy);
   }
 
   clear() {
@@ -80,9 +83,12 @@ export class GameRenderer {
     this.ctx.translate(128, 20); // shift right and down slightly
     this.ctx.scale(0.8, 0.8);    // scale down logical elements by 20%
     
+    // Apply camera panning and zoom transformations
+    this.camera.applyTransform(this.ctx);
+    
     // 1. Draw Motherboard PCB background grid & traces
     this.drawPCBGrid();
-    this.drawCircuitTraces();
+    this.drawCircuitTraces(gameState);
     
     // 2. Draw Kernel Node (Objective)
     this.drawKernelNode(gameState.kernelHp, gameState.kernelMaxHp);
@@ -108,8 +114,12 @@ export class GameRenderer {
     }
 
     // 3c. Draw Tutorial Target Highlight and Arrow
-    if (gameState.tutorial && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
-      this.drawTutorialTarget(9, 5);
+    if (gameState.tutorial) {
+      if (gameState.currentLevel.id === 1 && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
+        this.drawTutorialTarget(9, 5);
+      } else if (gameState.currentLevel.id === 3 && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
+        this.drawTutorialTarget(8, 3);
+      }
     }
 
     // 4. Draw Towers (Cases)
@@ -132,6 +142,7 @@ export class GameRenderer {
       this.drawFloatingText(txt);
     });
 
+    this.camera.restoreTransform(this.ctx);
     this.ctx.restore();
   }
 
@@ -174,44 +185,49 @@ export class GameRenderer {
     });
   }
 
-  drawCircuitTraces() {
+  drawCircuitTraces(gameState) {
     this.ctx.save();
     
     const cellSize = CONFIG.GRID.CELL_SIZE;
     
     // Unique non-overlapping track segments to prevent transparency stacking at crossovers
-    const uniqueTraces = [
-      // 1. Common start track
-      [
-        { x: 0, y: 4 },
-        { x: 4, y: 4 }
-      ],
-      // 2. Upper branch (Path 1)
-      [
-        { x: 4, y: 4 },
-        { x: 4, y: 1 },
-        { x: 10, y: 1 },
-        { x: 10, y: 7 },
-        { x: 14, y: 7 },
-        { x: 14, y: 4 }
-      ],
-      // 3. Lower branch (Path 2)
-      [
-        { x: 2, y: 4 },
-        { x: 2, y: 7 },
-        { x: 8, y: 7 },
-        { x: 8, y: 4 },
-        { x: 12, y: 4 },
-        { x: 12, y: 2 },
-        { x: 14, y: 2 },
-        { x: 14, y: 4 }
-      ],
-      // 4. Common end track
-      [
-        { x: 14, y: 4 },
-        { x: 15, y: 4 }
-      ]
-    ];
+    let uniqueTraces = [];
+    if (gameState && gameState.currentLevel && gameState.currentLevel.uniqueTraces) {
+      uniqueTraces = gameState.currentLevel.uniqueTraces;
+    } else {
+      uniqueTraces = [
+        // 1. Common start track
+        [
+          { x: 0, y: 4 },
+          { x: 4, y: 4 }
+        ],
+        // 2. Upper branch (Path 1)
+        [
+          { x: 4, y: 4 },
+          { x: 4, y: 1 },
+          { x: 10, y: 1 },
+          { x: 10, y: 7 },
+          { x: 14, y: 7 },
+          { x: 14, y: 4 }
+        ],
+        // 3. Lower branch (Path 2)
+        [
+          { x: 2, y: 4 },
+          { x: 2, y: 7 },
+          { x: 8, y: 7 },
+          { x: 8, y: 4 },
+          { x: 12, y: 4 },
+          { x: 12, y: 2 },
+          { x: 14, y: 2 },
+          { x: 14, y: 4 }
+        ],
+        // 4. Common end track
+        [
+          { x: 14, y: 4 },
+          { x: 15, y: 4 }
+        ]
+      ];
+    }
     
     // 1. Draw base trace tracks (glowing baseline)
     this.ctx.strokeStyle = 'rgba(0, 255, 204, 0.15)'; // glowing baseline
@@ -246,8 +262,14 @@ export class GameRenderer {
     this.ctx.stroke();
 
     // Update and draw floating neon data packets
+    const paths = (gameState && gameState.currentLevel && gameState.currentLevel.paths) || CONFIG.PATHS;
     this.dataPackets.forEach(packet => {
-      const path = CONFIG.PATHS[packet.pathIdx];
+      if (packet.pathIdx >= paths.length) {
+        packet.pathIdx = 0;
+        packet.waypointIdx = 0;
+        packet.progress = 0;
+      }
+      const path = paths[packet.pathIdx];
       packet.progress += packet.speed * 0.05;
       
       if (packet.progress >= 1) {
@@ -443,7 +465,7 @@ export class GameRenderer {
     // Pulse animation factor
     const pulseGlow = Math.abs(Math.sin(this.pulseTimer)) * 6 + 3;
 
-    // --- LEVEL 1: INTERFACE PAD ONLY ---
+    // --- LEVEL 1: GRID ANCHOR ONLY ---
     if (!tower.hasCase) {
       // Draw a flat metal/copper PCB grounding pad
       this.ctx.fillStyle = '#101520';
@@ -472,7 +494,7 @@ export class GameRenderer {
         this.ctx.fillStyle = 'rgba(0, 255, 204, 0.8)';
         this.ctx.font = '8px "Share Tech Mono"';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText("INTERFACE PAD", tx, ty + 35);
+        this.ctx.fillText("GRID ANCHOR", tx, ty + 35);
       }
       this.ctx.restore();
       return;
@@ -582,12 +604,27 @@ export class GameRenderer {
         }
       }
 
-      // GPU Glow modules (Gold plates on lower rack)
+      // GPU / PCIE Adapter Card modules (Gold/Orange plates on lower rack)
       if (mb.installed.gpu.length > 0) {
-        this.ctx.fillStyle = '#ffb700';
         for (let g = 0; g < mb.installed.gpu.length; g++) {
+          const comp = mb.installed.gpu[g];
           const gy = towerY + 38 + g * 4;
-          this.ctx.fillRect(tx - 10, gy, 20, 2);
+          if (comp.type === 'pcie-m2') {
+            this.ctx.fillStyle = '#ff8800'; // Orange for PCIE M.2 adapter
+            this.ctx.fillRect(tx - 9, gy, 18, 2);
+          } else {
+            this.ctx.fillStyle = '#ffb700'; // Gold for GPU
+            this.ctx.fillRect(tx - 10, gy, 20, 2);
+          }
+        }
+      }
+
+      // SSD M.2 storage modules (Cyan dashes on the right side of CPU)
+      if (mb.installed.ssd && mb.installed.ssd.length > 0) {
+        this.ctx.fillStyle = '#00aaff';
+        for (let s = 0; s < mb.installed.ssd.length; s++) {
+          const sx = tx + 8 + s * 2.8;
+          this.ctx.fillRect(sx, towerY + 28, 1.5, 6);
         }
       }
 

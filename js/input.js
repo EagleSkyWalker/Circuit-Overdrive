@@ -9,6 +9,12 @@ export class InputHandler {
     
     this.hoveredCell = null;
     
+    // Key states for camera panning
+    this.keys = {
+      w: false, a: false, s: false, d: false,
+      ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false
+    };
+    
     this.setupListeners();
   }
 
@@ -20,6 +26,17 @@ export class InputHandler {
     // Mouse clicks
     this.canvas.addEventListener('click', (e) => this.handleInput(e.clientX, e.clientY));
     
+    // Mouse Wheel Zoom
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.renderer.camera.handleWheel(e.deltaY);
+    }, { passive: false });
+
+    // Keyboard Pan listeners
+    window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+    window.addEventListener('blur', () => this.clearKeys());
+
     // Touch inputs for mobile devices in landscape
     this.canvas.addEventListener('touchstart', (e) => {
       // Prevent default double-tap zoom / scrolling while tapping cells
@@ -79,6 +96,30 @@ export class InputHandler {
     if (this.hoveredCell !== null) {
       this.hoveredCell = null;
       this.onHoverCellChanged(null);
+    }
+  }
+
+  handleKeyDown(e) {
+    const key = e.key;
+    if (key in this.keys) {
+      this.keys[key] = true;
+    } else if (key.toLowerCase() in this.keys) {
+      this.keys[key.toLowerCase()] = true;
+    }
+  }
+
+  handleKeyUp(e) {
+    const key = e.key;
+    if (key in this.keys) {
+      this.keys[key] = false;
+    } else if (key.toLowerCase() in this.keys) {
+      this.keys[key.toLowerCase()] = false;
+    }
+  }
+
+  clearKeys() {
+    for (const key in this.keys) {
+      this.keys[key] = false;
     }
   }
 }

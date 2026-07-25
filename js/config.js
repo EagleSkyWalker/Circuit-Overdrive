@@ -42,7 +42,7 @@ export const CONFIG = {
   
   // Base Socket
   SOCKET: {
-    name: "Interface Pad",
+    name: "Grid Anchor",
     cost: 20
   },
 
@@ -72,7 +72,6 @@ export const CONFIG = {
     }
   },
   
-  // Motherboards (determines slots inside Case)
   MOTHERBOARDS: {
     "mini-itx": {
       name: "Mini-ITX Board",
@@ -82,7 +81,8 @@ export const CONFIG = {
         ram: 2,
         gpu: 1,
         psu: 1,
-        cooler: 1
+        cooler: 1,
+        m2: 1
       }
     },
     "atx": {
@@ -93,7 +93,8 @@ export const CONFIG = {
         ram: 4,
         gpu: 3,
         psu: 2,
-        cooler: 2
+        cooler: 2,
+        m2: 2
       }
     }
   },
@@ -130,7 +131,7 @@ export const CONFIG = {
       cryptoRate: 1.0, // generating 1 Qubit per second actively
       range: 120, // range to collect bonus Bits from defeated enemies
       rangeBonusRate: 10, // bonus Bits awarded on nearby malware kills
-      wattage: 35,
+      wattage: 40,
       heat: 18,
       color: "#ffb700"
     },
@@ -150,6 +151,22 @@ export const CONFIG = {
       wattage: 10,
       heat: 0,
       color: "#00ffcc"
+    },
+    ssd: {
+      name: "M.2 NVMe SSD",
+      cost: 30,
+      wattage: 10,
+      heat: 2,
+      color: "#00aaff",
+      chiaRate: 3.0 // 3.0 Chia/sec
+    },
+    'pcie-m2': {
+      name: "PCIE M.2 Adapter",
+      cost: 25,
+      wattage: 5,
+      heat: 1,
+      color: "#ff8800",
+      m2Extra: 4 // Adds 4 extra M.2 slots
     }
   },
   
@@ -159,7 +176,7 @@ export const CONFIG = {
       name: "Glitch.exe",
       hp: 60, // reduced from 80
       speed: 1.8,
-      reward: 12,
+      reward: 8, // reduced from 12
       color: "#ff0055",
       size: 14,
       attackPower: 10 // damage to tower if it targets it
@@ -168,7 +185,7 @@ export const CONFIG = {
       name: "Worm.msi",
       hp: 120, // reduced from 150
       speed: 1.2,
-      reward: 20,
+      reward: 15, // reduced from 20
       color: "#a020f0",
       size: 18,
       attackPower: 20
@@ -177,7 +194,7 @@ export const CONFIG = {
       name: "Trojan.dll",
       hp: 280, // reduced from 350
       speed: 0.8,
-      reward: 45,
+      reward: 32, // reduced from 45
       color: "#ffb700",
       size: 24,
       attackPower: 35

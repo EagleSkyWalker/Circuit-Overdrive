@@ -1,4 +1,5 @@
 import CONFIG from './config.js';
+import { PcTower } from './entities.js';
 
 export const LEVELS = {
   1: {
@@ -16,37 +17,72 @@ export const LEVELS = {
   },
   2: {
     id: 2,
-    name: "Sector 2: Power Grid",
-    desc: "Balance the power regulator grid. Mine cryptocurrency using GPUs and avoid wattage overloads with PSUs.",
+    name: "Sector 2: Crypto Exchange",
+    desc: "Peaceful sandbox. Construct mining rigs to mine Hashes and Chia, and trade on the stock market to reach 600 QB.",
     startingBits: 350,
-    waves: 3,
-    waveSetup: (waveNum) => {
-      const queue = [];
-      const glitches = 6 + waveNum * 2;
-      const worms = waveNum > 1 ? 2 + waveNum : 0;
-      for (let i = 0; i < glitches; i++) queue.push('glitch');
-      for (let i = 0; i < worms; i++) queue.push('worm');
-      return queue.sort(() => Math.random() - 0.5);
-    },
-    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'cpu', 'ram', 'gpu', 'psu']
+    waves: 0,
+    waveSetup: (waveNum) => [],
+    unlockedParts: ['socket', 'case-basic', 'mb-mini', 'gpu', 'ssd', 'pcie-m2'],
+    isTutorial: true,
+    targetHashes: 100,
+    targetChia: 200,
+    targetQB: 600
   },
   3: {
     id: 3,
     name: "Sector 3: Liquid Core",
     desc: "Fight heavy Trojan malware using Core i9 Extreme CPUs. Build liquid cooling loops to stop thermal throttling.",
     startingBits: 600,
-    waves: 4,
+    waves: 1,
     waveSetup: (waveNum) => {
-      const queue = [];
-      const glitches = 4 + waveNum;
-      const worms = 3 + waveNum * 2;
-      const trojans = waveNum > 1 ? waveNum - 1 : 0;
-      for (let i = 0; i < glitches; i++) queue.push('glitch');
-      for (let i = 0; i < worms; i++) queue.push('worm');
-      for (let i = 0; i < trojans; i++) queue.push('trojan');
-      return queue.sort(() => Math.random() - 0.5);
+      // Slightly enlarged wave containing glitches, worms, and trojans
+      return ['glitch', 'glitch', 'glitch', 'glitch', 'worm', 'worm', 'worm', 'trojan', 'trojan'].sort(() => Math.random() - 0.5);
     },
-    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'cpu', 'cpu-extreme', 'ram', 'gpu', 'psu', 'cooler', 'repair']
+    unlockedParts: ['socket', 'case-basic', 'mb-mini', 'cpu', 'ram', 'cooler', 'repair'],
+    isTutorial: true,
+    paths: [
+      [
+        { x: 0, y: 4 },
+        { x: 3, y: 4 },
+        { x: 3, y: 7 },
+        { x: 6, y: 7 },
+        { x: 6, y: 1 },
+        { x: 11, y: 1 },
+        { x: 11, y: 6 },
+        { x: 14, y: 6 },
+        { x: 14, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    uniqueTraces: [
+      [
+        { x: 0, y: 4 },
+        { x: 3, y: 4 },
+        { x: 3, y: 7 },
+        { x: 6, y: 7 },
+        { x: 6, y: 1 },
+        { x: 11, y: 1 },
+        { x: 11, y: 6 },
+        { x: 14, y: 6 },
+        { x: 14, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    onInit: (game) => {
+      // Spawn pre-existing broken, overheated server tower at coordinate [8, 3]
+      const tower = new PcTower(8, 3);
+      tower.installCase('basic');
+      tower.installMotherboard('mini-itx');
+      tower.installComponent('cpu');
+      tower.installComponent('ram');
+      
+      // Make it broken and overheated
+      tower.status = 'broken';
+      tower.hp = 0;
+      tower.heat = 98.5;
+      
+      game.towers.push(tower);
+    }
   },
   4: {
     id: 4,
@@ -64,7 +100,7 @@ export const LEVELS = {
       for (let i = 0; i < trojans; i++) queue.push('trojan');
       return queue.sort(() => Math.random() - 0.5);
     },
-    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'cpu', 'cpu-extreme', 'ram', 'gpu', 'psu', 'cooler', 'repair']
+    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'cpu', 'cpu-extreme', 'ram', 'gpu', 'psu', 'cooler', 'repair', 'ssd', 'pcie-m2']
   }
 };
 

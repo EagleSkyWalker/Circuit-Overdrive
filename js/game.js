@@ -31,6 +31,17 @@ class GameController {
     this.kernelHp = CONFIG.KERNEL_MAX_HP;
     this.kernelMaxHp = CONFIG.KERNEL_MAX_HP;
     
+    // Crypto Economy & Market Variables
+    this.hashes = 0;
+    this.chias = 0;
+    this.totalHashesMined = 0;
+    this.totalChiaMined = 0;
+    this.hashPrice = 2.0;
+    this.chiaPrice = 0.8;
+    this.prevHashPrice = 2.0;
+    this.prevChiaPrice = 0.8;
+    this.marketTimer = 0;
+    
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
@@ -63,7 +74,9 @@ class GameController {
       gpu: 0,
       psu: 0,
       cooler: 0,
-      repair: 0
+      repair: 0,
+      ssd: 0,
+      'pcie-m2': 0
     };
 
     // Wave spawn tracking
@@ -102,6 +115,8 @@ class GameController {
     document.getElementById('btn-next-wave').addEventListener('click', () => this.startNextWave());
     document.getElementById('btn-close-monitor').addEventListener('click', () => this.deselectTower());
     document.getElementById('btn-toggle-hardware').addEventListener('click', () => this.toggleHardwareExpanded());
+    document.getElementById('btn-sell-hashes').addEventListener('click', () => this.sellHashes());
+    document.getElementById('btn-sell-chias').addEventListener('click', () => this.sellChias());
     
     // Level selection cards click handlers
     document.querySelectorAll('.level-card').forEach(card => {
@@ -150,12 +165,16 @@ class GameController {
     document.getElementById('level-select').classList.remove('hidden');
     document.getElementById('level-victory').classList.add('hidden');
     document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('market-panel').classList.add('hidden');
+    document.getElementById('objectives-panel').classList.add('hidden');
     this.updateLevelSelectUI();
   }
 
   showMainMenu() {
     document.getElementById('main-menu').classList.remove('hidden');
     document.getElementById('level-select').classList.add('hidden');
+    document.getElementById('market-panel').classList.add('hidden');
+    document.getElementById('objectives-panel').classList.add('hidden');
   }
 
   updateLevelSelectUI() {
@@ -207,6 +226,50 @@ class GameController {
     this.uiMode = 'BUY';
     this.selectedBuildItem = null;
     
+    // Reset Economy Variables
+    this.hashes = 0;
+    this.chias = 0;
+    this.totalHashesMined = 0;
+    this.totalChiaMined = 0;
+    this.hashPrice = 2.0;
+    this.chiaPrice = 0.8;
+    this.prevHashPrice = 2.0;
+    this.prevChiaPrice = 0.8;
+    this.marketTimer = 0;
+
+    // Show/Hide Level Specific UI Panels
+    if (levelId === 1 || levelId === 3) {
+      document.getElementById('market-panel').classList.add('hidden');
+      document.getElementById('objectives-panel').classList.add('hidden');
+      document.getElementById('stat-hashes').style.display = 'none';
+      document.getElementById('stat-chias').style.display = 'none';
+      document.getElementById('stat-wave').style.display = 'flex';
+      document.getElementById('btn-next-wave').style.display = 'flex';
+    } else {
+      document.getElementById('market-panel').classList.remove('hidden');
+      document.getElementById('stat-hashes').style.display = 'flex';
+      document.getElementById('stat-chias').style.display = 'flex';
+      this.updateMarketUI();
+
+      if (levelId === 2) {
+        document.getElementById('objectives-panel').classList.remove('hidden');
+        document.getElementById('stat-wave').style.display = 'none';
+        document.getElementById('btn-next-wave').style.display = 'none';
+        this.updateObjectivesUI();
+      } else {
+        document.getElementById('objectives-panel').classList.add('hidden');
+        document.getElementById('stat-wave').style.display = 'flex';
+        document.getElementById('btn-next-wave').style.display = 'flex';
+      }
+    }
+    
+    // Reset camera navigation on new boot
+    if (this.renderer && this.renderer.camera) {
+      this.renderer.camera.zoom = 1.0;
+      this.renderer.camera.x = 0;
+      this.renderer.camera.y = 0;
+    }
+    
     // Clear inventory
     Object.keys(this.inventory).forEach(key => {
       this.inventory[key] = 0;
@@ -218,13 +281,17 @@ class GameController {
     }
     document.getElementById('top-notification').classList.add('hidden');
 
-    // Initialize tutorial if Level 1
+    // Initialize tutorial if level specifies it
     if (lvl.isTutorial) {
       this.tutorial = new TutorialController(this);
       this.tutorial.refreshActiveInstruction();
     } else {
       this.tutorial = null;
       this.sysop.hide();
+    }
+
+    if (lvl.onInit) {
+      lvl.onInit(this);
     }
 
     this.gameActive = true;
@@ -250,6 +317,8 @@ class GameController {
     document.getElementById('hud').classList.add('hidden');
     document.getElementById('bottom-bar').classList.add('hidden');
     document.getElementById('tower-monitor').classList.add('hidden');
+    document.getElementById('market-panel').classList.add('hidden');
+    document.getElementById('objectives-panel').classList.add('hidden');
     if (this.sysop) this.sysop.hide();
     
     const unlockList = document.getElementById('victory-unlock-list');
@@ -257,7 +326,7 @@ class GameController {
     
     let unlocks = [];
     if (this.levelManager.currentLevelId === 1) {
-      unlocks = ["RTX GPU MINER", "80+ PLATINUM PSU", "SECTOR 02: POWER GRID"];
+      unlocks = ["RTX GPU MINER", "80+ PLATINUM PSU", "SECTOR 02: CRYPTO EXCHANGE"];
     } else if (this.levelManager.currentLevelId === 2) {
       unlocks = ["LIQUID AIO COOLER", "CORE I9 EXTREME CPU", "SECTOR 03: LIQUID CORE"];
     } else if (this.levelManager.currentLevelId === 3) {
@@ -294,7 +363,7 @@ class GameController {
     let desc = "";
     switch(slotName) {
       case 'socket':
-        desc = "SOCKET: Base motherboard pad connector. Required to place cases. Cost: 20QB.";
+        desc = "GRID ANCHOR: Base motherboard pad connector. Required to place cases. Cost: 20QB.";
         break;
       case 'case-basic':
         desc = "CASE (ITX): Basic case. HP: 100, Passive Airflow: 8°C/s. Support: Mini-ITX motherboard. Cost: 40QB.";
@@ -303,7 +372,7 @@ class GameController {
         desc = "CASE (ATX): Server ATX case. HP: 250, Passive Airflow: 18°C/s. Support: Full ATX motherboard. Cost: 80QB.";
         break;
       case 'mb-mini':
-        desc = "MB (ITX): ITX Motherboard. Range: 2.75 Tiles. Slots: 1 CPU, 2 RAM, 1 GPU, 1 PSU, 1 Cooler. Cost: 45QB.";
+        desc = "MB (ITX): ITX Motherboard. Range: 2.75 Tiles. Slots: 1 CPU, 2 RAM, 1 GPU, 1 PSU, 1 Cooler, 1 native M.2 SSD slot. Cost: 45QB.";
         break;
       case 'mb-atx':
         desc = "MB (ATX): ATX Motherboard. Range: 3.75 Tiles. Slots: 1 CPU, 4 RAM, 3 GPU, 1 PSU, 2 Coolers. Cost: 100QB.";
@@ -318,7 +387,13 @@ class GameController {
         desc = "RAM: DDR5 Memory. Speeds up tower fire cooldown rate by +35%. Wattage: 5W, Heat: 1 per shot. Cost: 25QB.";
         break;
       case 'gpu':
-        desc = "GPU: RTX Miner. Generates +1QB/sec actively (in ticks), plus +10QB for malware defeated in range (1.5 Tiles). Wattage: 35W, Heat: 18/s. Cost: 50QB.";
+        desc = "GPU: RTX Miner. Generates +1.0 Hash/sec passively, plus a combat bonus of +1 HASH upon malware deletion. Wattage: 35W, Heat: 18/s. Cost: 50QB.";
+        break;
+      case 'ssd':
+        desc = "SSD: M.2 NVMe Storage. Generates +3.0 Chia/sec passively, plus a combat bonus of +2 CHIA upon malware deletion. Wattage: 10W, Heat: 2/s. Cost: 30QB.";
+        break;
+      case 'pcie-m2':
+        desc = "M.2 ADAPTER: PCIE expansion card. Plugs into a PCIE (GPU) lane to add 4 extra M.2 slots for SSD installation. Wattage: 5W, Heat: 1/s. Cost: 25QB.";
         break;
       case 'psu':
         desc = "PSU: 80+ Platinum. Supplies up to 110W power and reduces total heat output by 35%. Cost: 40QB.";
@@ -499,6 +574,9 @@ class GameController {
       if (tower) {
         this.selectTower(tower);
       }
+      if (this.currentLevel && this.currentLevel.id === 2) {
+        this.updateObjectivesUI();
+      }
 
       // Hook: Notify tutorial build success
       if (this.tutorial) {
@@ -527,13 +605,19 @@ class GameController {
       const cost = this.getCostOfItem(slotName);
       const stock = this.inventory[slotName];
 
-      const badge = document.getElementById(`stock-${slotName}`);
-      if (badge) {
-        badge.innerText = stock;
+      const container = document.getElementById(`stock-${slotName}`);
+      if (container) {
+        container.innerHTML = '';
         if (stock > 0) {
-          badge.classList.add('has-stock');
-        } else {
-          badge.classList.remove('has-stock');
+          const numDashes = Math.min(4, stock);
+          for (let i = 1; i <= numDashes; i++) {
+            const dash = document.createElement('div');
+            dash.className = 'stock-dash';
+            if (stock > 4 && i === 4) {
+              dash.classList.add('has-plus');
+            }
+            container.appendChild(dash);
+          }
         }
       }
       
@@ -552,7 +636,8 @@ class GameController {
   }
 
   isCellOnPath(col, row) {
-    for (const path of CONFIG.PATHS) {
+    const paths = (this.currentLevel && this.currentLevel.paths) || CONFIG.PATHS;
+    for (const path of paths) {
       for (let i = 0; i < path.length - 1; i++) {
         const p1 = path[i];
         const p2 = path[i + 1];
@@ -751,7 +836,7 @@ class GameController {
     const tower = this.selectedTower;
 
     // Type name
-    let typeName = "Socket Base";
+    let typeName = "Grid Anchor";
     if (tower.hasCase) {
       typeName = tower.caseType === 'basic' ? "ITX Mini Tower" : "ATX Server Tower";
     }
@@ -776,9 +861,9 @@ class GameController {
       list.appendChild(mbLi);
 
       // Iterate slot-by-slot for each hardware type to show active parts and empty slots
-      const slotTypes = ['cpu', 'ram', 'gpu', 'psu', 'cooler'];
+      const slotTypes = ['cpu', 'ram', 'gpu', 'psu', 'cooler', 'ssd'];
       slotTypes.forEach(type => {
-        const totalSlots = mb.stats.slots[type] || 0;
+        const totalSlots = (type === 'ssd') ? mb.getMaxM2Slots() : (mb.stats.slots[type] || 0);
         const installedArr = mb.installed[type] || [];
         
         for (let i = 0; i < totalSlots; i++) {
@@ -786,8 +871,8 @@ class GameController {
           if (i < installedArr.length) {
             const comp = installedArr[i];
             li.innerHTML = `
-              <span>[${type.toUpperCase()}] ${comp.stats.name}</span>
-              <button data-uninstall="${type}" data-id="${comp.id}">SELL</button>
+              <span>[${comp.type.toUpperCase()}] ${comp.stats.name}</span>
+              <button data-uninstall="${comp.type}" data-id="${comp.id}">SELL</button>
             `;
             li.style.borderLeftColor = 'var(--neon-purple)';
             
@@ -824,6 +909,13 @@ class GameController {
       this.updateHUD();
       this.updateMonitorUI();
       this.updateHotbarUI();
+      if (this.currentLevel && this.currentLevel.id === 2) {
+        this.updateObjectivesUI();
+      }
+    } else {
+      if (partType === 'pcie-m2') {
+        this.showNotification("CANNOT SELL ADAPTER: UNINSTALL EXTRA SSDs FIRST!");
+      }
     }
   }
 
@@ -868,6 +960,8 @@ class GameController {
 
   updateHUD() {
     document.getElementById('val-bits').innerText = String(Math.floor(this.bits)).padStart(4, '0');
+    document.getElementById('val-hashes').innerText = this.hashes.toFixed(0);
+    document.getElementById('val-chias').innerText = this.chias.toFixed(0);
     
     const waveEl = document.getElementById('val-wave');
     if (this.currentLevel && this.currentLevel.waves !== Infinity) {
@@ -881,6 +975,16 @@ class GameController {
     document.getElementById('hp-bar-fill').style.width = `${hpPct}%`;
     
     const btn = document.getElementById('btn-next-wave');
+    
+    // Manage visibility of wave initialization button dynamically
+    if (this.currentLevel && this.currentLevel.id === 3 && this.tutorial && this.tutorial.step < 5) {
+      btn.style.display = 'none';
+    } else if (this.currentLevel && this.currentLevel.id === 2) {
+      btn.style.display = 'none';
+    } else {
+      btn.style.display = 'flex';
+    }
+
     if (this.waveNumber === 0) {
       btn.innerText = "INITIALIZE PROTOCOL";
       btn.disabled = false;
@@ -895,8 +999,9 @@ class GameController {
   }
 
   spawnEnemy(type) {
-    const pathIndex = Math.floor(Math.random() * CONFIG.PATHS.length);
-    const path = CONFIG.PATHS[pathIndex];
+    const paths = (this.currentLevel && this.currentLevel.paths) || CONFIG.PATHS;
+    const pathIndex = Math.floor(Math.random() * paths.length);
+    const path = paths[pathIndex];
     const newEnemy = new MalwareEnemy(type, path, pathIndex);
     this.enemies.push(newEnemy);
   }
@@ -937,6 +1042,11 @@ class GameController {
   }
 
   update(dt) {
+    // Tick Camera offset movement
+    if (this.renderer && this.input) {
+      this.renderer.camera.update(dt, this.input.keys);
+    }
+
     // 1. Spawning
     if (this.waveActive && this.spawnQueue.length > 0) {
       this.spawnTimer += dt;
@@ -947,31 +1057,86 @@ class GameController {
       }
     }
 
-    // 2. Active GPU Mining (every 1 second)
+    // 2. Active Passive Mining (every 1 second)
     this.gpuMiningTimer += dt;
     if (this.gpuMiningTimer >= 1000) {
       this.gpuMiningTimer = 0;
-      // Only mine passive Qubits if the first wave protocol has been initialized
-      if (this.waveNumber > 0) {
+      const isMiningActive = this.currentLevel && (this.currentLevel.id === 2 || this.waveNumber > 0);
+      if (isMiningActive) {
         this.towers.forEach(tower => {
           if (tower.status === 'active' && tower.motherboard) {
-            const gpuCount = tower.motherboard.installed.gpu.length;
-            if (gpuCount > 0) {
-              const qbEarned = gpuCount * 1; // 1 QB per second per active GPU
-              this.bits += qbEarned;
+            const mb = tower.motherboard;
+            
+            // Level 1: Standard Qubit Mining
+            if (this.currentLevel.id === 1) {
+              const gpuCount = mb.installed.gpu.length;
+              if (gpuCount > 0) {
+                const qbEarned = gpuCount * 1;
+                this.bits += qbEarned;
+                this.floatingTexts.push({
+                  x: tower.x,
+                  y: tower.y - 40,
+                  text: `+${qbEarned}QB`,
+                  color: '#39ff14', // green for QB
+                  life: 1.2
+                });
+              }
+            } else {
+              // Level 2+: Crypto Hashes / Chia
+              const gpuCount = mb.installed.gpu.filter(g => g.type === 'gpu').length;
+              const ssdCount = mb.installed.ssd.length;
               
-              // Floating text above GPU tower
-              this.floatingTexts.push({
-                x: tower.x,
-                y: tower.y - 40,
-                text: `+${qbEarned}QB`,
-                color: '#39ff14', // Green for GPU gain
-                life: 1.2
-              });
-              this.updateHUD();
+              if (gpuCount > 0) {
+                const hashEarned = gpuCount * 1;
+                this.hashes += hashEarned;
+                this.totalHashesMined += hashEarned;
+                this.floatingTexts.push({
+                  x: tower.x - 12,
+                  y: tower.y - 40,
+                  text: `+${hashEarned} HASH`,
+                  color: '#ffb700', // Gold/Orange for GPU Hash
+                  life: 1.2
+                });
+              }
+              
+              if (ssdCount > 0) {
+                const chiaEarned = ssdCount * 3;
+                this.chias += chiaEarned;
+                this.totalChiaMined += chiaEarned;
+                this.floatingTexts.push({
+                  x: tower.x + 12,
+                  y: tower.y - 40,
+                  text: `+${chiaEarned} CHIA`,
+                  color: '#00d2ff', // Vibrant Cyan for SSD Chia
+                  life: 1.2
+                });
+              }
             }
           }
         });
+        this.updateHUD();
+        if (this.currentLevel.id === 2) {
+          this.updateObjectivesUI();
+        }
+      }
+    }
+
+    // 2c. Market Exchanger pricing fluctuations (every 10 seconds, only Level 2+)
+    if (this.currentLevel && this.currentLevel.id > 1) {
+      this.marketTimer += dt;
+      if (this.marketTimer >= 10000) {
+        this.marketTimer = 0;
+        this.tickMarketPrices();
+      }
+    }
+
+    // 2d. Check Sector 2 Victory Conditions (Checklist objectives)
+    if (this.currentLevel && this.currentLevel.id === 2 && this.gameActive) {
+      const hashesMet = this.totalHashesMined >= 100;
+      const chiaMet = this.totalChiaMined >= 200;
+      const qbMet = this.bits >= 600;
+      if (hashesMet && chiaMet && qbMet) {
+        this.levelCleared();
       }
     }
 
@@ -1000,43 +1165,64 @@ class GameController {
           return;
         }
       } else if (enemy.hp <= 0) {
-        // Normal enemy defeat reward
+        // Normal enemy defeat reward (Qubits: neon green text)
         this.bits += enemy.reward;
         this.floatingTexts.push({
           x: enemy.x,
-          y: enemy.y - 10,
+          y: enemy.y - 12,
           text: `+${enemy.reward}QB`,
-          color: '#00ffcc', // Cyan for basic reward
-          life: 1.0
+          color: '#39ff14', // Neon Green for baseline QB reward
+          life: 1.1
         });
         
-        // GPU range collection
-        this.towers.forEach(tower => {
-          if (tower.status === 'active' && tower.motherboard) {
-            const dx = enemy.x - tower.x;
-            const dy = enemy.y - tower.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist <= tower.range) {
-              const gpuCount = tower.motherboard.installed.gpu.length;
-              if (gpuCount > 0) {
-                const bonusQB = gpuCount * CONFIG.COMPONENTS.gpu.rangeBonusRate;
-                this.bits += bonusQB;
-                
-                this.floatingTexts.push({
-                  x: tower.x,
-                  y: tower.y - 40,
-                  text: `+${bonusQB}QB`,
-                  color: '#39ff14', // Green for GPU bonus
-                  life: 1.2
-                });
-              }
+        // Crypto Deletion Intercept Combat Bonuses (Level 2+)
+        if (this.currentLevel && this.currentLevel.id > 1) {
+          // GPU Combat Hash Bonus (+1 Hash per active GPU on board)
+          let totalActiveGpus = 0;
+          this.towers.forEach(t => {
+            if (t.status === 'active' && t.motherboard) {
+              totalActiveGpus += t.motherboard.installed.gpu.filter(g => g.type === 'gpu').length;
             }
+          });
+          if (totalActiveGpus > 0) {
+            const hashKillBonus = totalActiveGpus * 1;
+            this.hashes += hashKillBonus;
+            this.totalHashesMined += hashKillBonus;
+            this.floatingTexts.push({
+              x: enemy.x - 14,
+              y: enemy.y - 28,
+              text: `+${hashKillBonus} HASH`,
+              color: '#ffb700', // Gold/Orange for GPU Hash bonus
+              life: 1.3
+            });
           }
-        });
+
+          // SSD Combat Chia Bonus (+2 Chia per active SSD on board)
+          let totalActiveSsds = 0;
+          this.towers.forEach(t => {
+            if (t.status === 'active' && t.motherboard) {
+              totalActiveSsds += t.motherboard.installed.ssd.length;
+            }
+          });
+          if (totalActiveSsds > 0) {
+            const chiaKillBonus = totalActiveSsds * 2;
+            this.chias += chiaKillBonus;
+            this.totalChiaMined += chiaKillBonus;
+            this.floatingTexts.push({
+              x: enemy.x + 14,
+              y: enemy.y - 28,
+              text: `+${chiaKillBonus} CHIA`,
+              color: '#00d2ff', // Vibrant Cyan for SSD Chia bonus
+              life: 1.3
+            });
+          }
+        }
 
         this.enemies.splice(i, 1);
         this.updateHUD();
+        if (this.currentLevel && this.currentLevel.id === 2) {
+          this.updateObjectivesUI();
+        }
       }
     }
 
@@ -1108,6 +1294,132 @@ class GameController {
       } else {
         this.updateMonitorTextOnly();
       }
+    }
+  }
+
+  tickMarketPrices() {
+    this.prevHashPrice = this.hashPrice;
+    this.prevChiaPrice = this.chiaPrice;
+    
+    // Hash price: fluctuates ±0.4, limits 0.5 to 5.0
+    const hashChange = (Math.random() - 0.5) * 0.8;
+    this.hashPrice = Math.max(0.5, Math.min(5.0, this.hashPrice + hashChange));
+    
+    // Chia price: fluctuates ±0.15, limits 0.2 to 2.0
+    const chiaChange = (Math.random() - 0.5) * 0.3;
+    this.chiaPrice = Math.max(0.2, Math.min(2.0, this.chiaPrice + chiaChange));
+    
+    this.updateMarketUI();
+  }
+
+  updateMarketUI() {
+    const hashRateEl = document.getElementById('val-hash-rate');
+    const hashTrendEl = document.getElementById('val-hash-trend');
+    const chiaRateEl = document.getElementById('val-chia-rate');
+    const chiaTrendEl = document.getElementById('val-chia-trend');
+    
+    if (hashRateEl) hashRateEl.innerText = `${this.hashPrice.toFixed(2)} QB`;
+    if (chiaRateEl) chiaRateEl.innerText = `${this.chiaPrice.toFixed(2)} QB`;
+    
+    // Hash trend
+    const hashDiff = this.hashPrice - this.prevHashPrice;
+    if (hashTrendEl) {
+      if (hashDiff > 0.01) {
+        hashTrendEl.innerHTML = `<span class="trend-up">▲ +${hashDiff.toFixed(2)}</span>`;
+      } else if (hashDiff < -0.01) {
+        hashTrendEl.innerHTML = `<span class="trend-down">▼ ${hashDiff.toFixed(2)}</span>`;
+      } else {
+        hashTrendEl.innerHTML = `<span>--</span>`;
+      }
+    }
+    
+    // Chia trend
+    const chiaDiff = this.chiaPrice - this.prevChiaPrice;
+    if (chiaTrendEl) {
+      if (chiaDiff > 0.01) {
+        chiaTrendEl.innerHTML = `<span class="trend-up">▲ +${chiaDiff.toFixed(2)}</span>`;
+      } else if (chiaDiff < -0.01) {
+        chiaTrendEl.innerHTML = `<span class="trend-down">▼ ${chiaDiff.toFixed(2)}</span>`;
+      } else {
+        chiaTrendEl.innerHTML = `<span>--</span>`;
+      }
+    }
+  }
+
+  updateObjectivesUI() {
+    const hashesText = document.querySelector('#obj-hashes .text');
+    const hashesCheck = document.querySelector('#obj-hashes .checkbox');
+    const chiaText = document.querySelector('#obj-chia .text');
+    const chiaCheck = document.querySelector('#obj-chia .checkbox');
+    const qbText = document.querySelector('#obj-qb .text');
+    const qbCheck = document.querySelector('#obj-qb .checkbox');
+    
+    const hashesMet = this.totalHashesMined >= 100;
+    const chiaMet = this.totalChiaMined >= 200;
+    const qbMet = this.bits >= 600;
+    
+    if (hashesText) hashesText.innerText = `Mine 100 Hashes (${this.totalHashesMined.toFixed(0)}/100)`;
+    if (hashesCheck) hashesCheck.innerText = hashesMet ? '[✓]' : '[ ]';
+    if (hashesCheck && hashesText) {
+      if (hashesMet) {
+        document.getElementById('obj-hashes').classList.add('completed');
+      } else {
+        document.getElementById('obj-hashes').classList.remove('completed');
+      }
+    }
+    
+    if (chiaText) chiaText.innerText = `Mine 200 Chia (${this.totalChiaMined.toFixed(0)}/200)`;
+    if (chiaCheck) chiaCheck.innerText = chiaMet ? '[✓]' : '[ ]';
+    if (chiaCheck && chiaText) {
+      if (chiaMet) {
+        document.getElementById('obj-chia').classList.add('completed');
+      } else {
+        document.getElementById('obj-chia').classList.remove('completed');
+      }
+    }
+    
+    if (qbText) qbText.innerText = `Accumulate 600 QB (${Math.floor(this.bits)}/600)`;
+    if (qbCheck) qbCheck.innerText = qbMet ? '[✓]' : '[ ]';
+    if (qbCheck && qbText) {
+      if (qbMet) {
+        document.getElementById('obj-qb').classList.add('completed');
+      } else {
+        document.getElementById('obj-qb').classList.remove('completed');
+      }
+    }
+  }
+
+  sellHashes() {
+    if (this.hashes < 1) {
+      this.showNotification("NO FULL HASHES TO EXCHANGE!");
+      return;
+    }
+    const sellCount = Math.floor(this.hashes);
+    const earnings = sellCount * this.hashPrice;
+    this.bits += earnings;
+    this.hashes -= sellCount;
+    this.showNotification(`EXCHANGED HASHES: +${earnings.toFixed(0)}QB`);
+    this.updateHUD();
+    this.updateHotbarUI();
+    if (this.currentLevel && this.currentLevel.id === 2) {
+      this.updateObjectivesUI();
+    }
+  }
+
+  sellChias() {
+    if (this.chias < 1) {
+      this.showNotification("NO FULL CHIAS TO EXCHANGE!");
+      return;
+    }
+    const sellCount = Math.floor(this.chias);
+    const earnings = sellCount * this.chiaPrice;
+    this.bits += earnings;
+    this.chias -= sellCount;
+    this.showNotification(`EXCHANGED CHIA: +${earnings.toFixed(0)}QB`);
+    this.updateHUD();
+    this.updateHotbarUI();
+    if (this.currentLevel && this.currentLevel.id === 2) {
+      this.updateObjectivesUI();
     }
   }
 }

@@ -21,24 +21,38 @@ export class Motherboard {
     this.installed = {
       cpu: [],
       ram: [],
-      gpu: [],
+      gpu: [], // houses GPUs or pcie-m2 adapters
       psu: [],
-      cooler: []
+      cooler: [],
+      ssd: []  // houses SSDs
     };
     
     this.ethernetLinked = false;
     this.wifiAntenna = false;
   }
 
+  getMaxM2Slots() {
+    let slots = this.stats.slots.m2 || 0;
+    this.installed.gpu.forEach(comp => {
+      if (comp.type === 'pcie-m2') {
+        slots += comp.stats.m2Extra || 0;
+      }
+    });
+    return slots;
+  }
+
   hasSlotAvailable(type) {
-    const category = type === 'cpu-extreme' ? 'cpu' : type;
+    if (type === 'ssd') {
+      return this.installed.ssd.length < this.getMaxM2Slots();
+    }
+    const category = (type === 'cpu-extreme') ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
     const maxSlots = this.stats.slots[category] || 0;
     return this.installed[category].length < maxSlots;
   }
 
   install(component) {
-    const category = component.type === 'cpu-extreme' ? 'cpu' : component.type;
     if (this.hasSlotAvailable(component.type)) {
+      const category = (component.type === 'cpu-extreme') ? 'cpu' : (component.type === 'pcie-m2' ? 'gpu' : component.type);
       this.installed[category].push(component);
       return true;
     }
@@ -46,10 +60,18 @@ export class Motherboard {
   }
 
   remove(type, id) {
-    const category = type === 'cpu-extreme' ? 'cpu' : type;
+    const category = (type === 'cpu-extreme') ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
     const list = this.installed[category];
     const index = list.findIndex(c => c.id === id);
     if (index !== -1) {
+      const component = list[index];
+      // Safety lock: if removing a PCIE adapter, verify we don't violate current SSD count limits
+      if (component.type === 'pcie-m2') {
+        const newMax = this.getMaxM2Slots() - (component.stats.m2Extra || 0);
+        if (this.installed.ssd.length > newMax) {
+          return null; // block removal
+        }
+      }
       const removed = list.splice(index, 1)[0];
       return removed;
     }
@@ -71,7 +93,7 @@ export class PcTower {
     this.caseType = null;
     this.motherboard = null; // Needs to be installed next
     
-    this.hp = CONFIG.SOCKET.cost; // Interface Pad HP starts at 20
+    this.hp = CONFIG.SOCKET.cost; // Grid Anchor HP starts at 20
     this.maxHp = 30;
     this.name = CONFIG.SOCKET.name;
     
@@ -80,6 +102,7 @@ export class PcTower {
     this.maxHeat = 100; // thermal limit 100°C
     
     this.cooldownTimer = 0; // CPU shooting timer
+    this.invulnTimer = 0; // Post-repair invulnerability timer in seconds
     
     // Cumulative calculated stats
     this.wattageProvided = 0;
@@ -200,7 +223,7 @@ export class PcTower {
   }
 
   takeDamage(amount) {
-    if (this.status === 'broken') return;
+    if (this.status === 'broken' || this.invulnTimer > 0) return;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
@@ -232,12 +255,18 @@ export class PcTower {
     this.hp = this.maxHp;
     this.heat = 30; // cooled down
     this.status = 'active';
+    this.invulnTimer = 10.0; // 10 seconds of invulnerability post-repair
     this.recalculateStats();
     return true;
   }
 
   update(dt, enemies, spawnProjectileCallback) {
     if (this.status === 'broken') return;
+
+    if (this.invulnTimer > 0) {
+      this.invulnTimer -= dt / 1000;
+      if (this.invulnTimer < 0) this.invulnTimer = 0;
+    }
 
     // 1. Power Limit System Throttling check
     const isOverloaded = this.wattageDrawn > this.wattageProvided;
@@ -254,24 +283,23 @@ export class PcTower {
     const mb = this.motherboard;
     const hasActiveComponents = mb && (mb.installed.cpu.length > 0 || mb.installed.gpu.length > 0);
 
-    // Disable heating in Sector 1 System Boot tutorial
-    const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
-    if (isLvl1) {
+    // Disable heating in Sector 1 & Sector 2
+    const isLvl1Or2 = window.Game && window.Game.currentLevel && (window.Game.currentLevel.id === 1 || window.Game.currentLevel.id === 2);
+    if (isLvl1Or2) {
       this.heat = 30;
     } else if (hasActiveComponents) {
-      if (this.status === 'active') {
-        heatGeneration = 0.5; // ambient motherboard running heat
-        
-        // GPUs run warm constantly while mining
-        mb.installed.gpu.forEach(g => {
-          heatGeneration += g.stats.heat * (dt / 1000);
-        });
-        
-        // Apply PSU Heat Efficiency rating
-        if (mb.installed.psu.length > 0) {
-          const psu = mb.installed.psu[0];
-          heatGeneration *= (1 - psu.stats.heatReduction);
-        }
+      // Heat is generated constant unless broken
+      heatGeneration = 0.5 * (dt / 1000); // ambient motherboard running heat per second
+      
+      // GPUs run warm constantly while mining
+      mb.installed.gpu.forEach(g => {
+        heatGeneration += g.stats.heat * (dt / 1000);
+      });
+      
+      // Apply PSU Heat Efficiency rating
+      if (mb.installed.psu.length > 0) {
+        const psu = mb.installed.psu[0];
+        heatGeneration *= (1 - psu.stats.heatReduction);
       }
 
       // Heat change = generation - cooling
@@ -321,9 +349,9 @@ export class PcTower {
         spawnProjectileCallback(this.x, this.y, target, this.damage);
         this.cooldownTimer = this.fireCooldown;
         
-        // Firing CPU generates immediate heat spike (disabled in Sector 1 tutorial)
-        const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
-        if (!isLvl1) {
+        // Firing CPU generates immediate heat spike (disabled in Sector 1 & 2)
+        const isLvl1Or2 = window.Game && window.Game.currentLevel && (window.Game.currentLevel.id === 1 || window.Game.currentLevel.id === 2);
+        if (!isLvl1Or2) {
           let fireHeat = 0;
           this.motherboard.installed.cpu.forEach(c => { fireHeat += c.stats.heat; });
           this.motherboard.installed.ram.forEach(r => { fireHeat += r.stats.heat; });
@@ -365,8 +393,11 @@ export class MalwareEnemy {
     this.type = type;
     this.stats = { ...CONFIG.MALWARE[type] };
     this.name = this.stats.name;
-    this.hp = this.stats.hp;
-    this.maxHp = this.stats.hp;
+    
+    // In Sector 1 Boot tutorial, malware is weakened to be 1-shot (20 HP vs i5 40 DMG)
+    const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
+    this.hp = isLvl1 ? 20 : this.stats.hp;
+    this.maxHp = this.hp;
     this.speed = this.stats.speed;
     this.reward = this.stats.reward;
     this.color = this.stats.color;

@@ -26,7 +26,7 @@ export class SYSOPHandler {
       this.titleEl.className = "sysop-title neon-purple";
     }
     if (this.textEl) {
-      this.textEl.innerText = text;
+      this.textEl.innerHTML = text;
     }
   }
 
@@ -48,7 +48,7 @@ export class SYSOPHandler {
       this.titleEl.className = "sysop-title neon-red";
     }
     if (this.textEl) {
-      this.textEl.innerText = text;
+      this.textEl.innerHTML = text;
     }
 
     // Retain error animation for 5.5 seconds, then return to normal tutorial step context

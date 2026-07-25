@@ -29,6 +29,14 @@
         <span class="label">QUBITS</span>
         <span class="value" id="val-bits">0000</span>
       </div>
+      <div class="hud-stat" id="stat-hashes">
+        <span class="label">HASHES</span>
+        <span class="value" id="val-hashes">0</span>
+      </div>
+      <div class="hud-stat" id="stat-chias">
+        <span class="label">CHIA</span>
+        <span class="value" id="val-chias">0</span>
+      </div>
       <div class="hud-stat" id="stat-integrity">
         <span class="label">KERNEL HP</span>
         <span class="value" id="val-integrity">100%</span>
@@ -40,6 +48,53 @@
       </div>
       <div class="hud-controls">
         <button id="btn-next-wave" class="hud-btn glow-btn">NEXT WAVE</button>
+      </div>
+    </div>
+
+    <!-- Objectives Panel (Left side) -->
+    <div id="objectives-panel" class="objectives-panel glass-panel hidden">
+      <div class="panel-header">
+        <span class="neon-cyan">SECTOR OBJECTIVES</span>
+      </div>
+      <div class="panel-content">
+        <ul id="objectives-list" class="objectives-list">
+          <li id="obj-hashes" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Mine 100 Hashes (0/100)</span>
+          </li>
+          <li id="obj-chia" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Mine 200 Chia (0/200)</span>
+          </li>
+          <li id="obj-qb" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Accumulate 600 QB (0/600)</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Market exchange monitor (Left side) -->
+    <div id="market-panel" class="market-panel glass-panel hidden">
+      <div class="market-header">
+        <span class="neon-purple">MARKET EXCHANGE</span>
+      </div>
+      <div class="market-content">
+        <div class="market-row">
+          <div class="market-label">HASH Price</div>
+          <div class="market-rate" id="val-hash-rate">2.0 QB</div>
+          <div class="market-trend" id="val-hash-trend">--</div>
+        </div>
+        <div class="market-row">
+          <div class="market-label">CHIA Price</div>
+          <div class="market-rate" id="val-chia-rate">0.8 QB</div>
+          <div class="market-trend" id="val-chia-trend">--</div>
+        </div>
+        <hr class="market-divider">
+        <div class="market-sell-buttons">
+          <button id="btn-sell-hashes" class="market-btn glow-btn">SELL HASHES</button>
+          <button id="btn-sell-chias" class="market-btn glow-btn">SELL CHIA</button>
+        </div>
       </div>
     </div>
 
@@ -89,88 +144,101 @@
 
       <!-- The Hotbar Slots container -->
       <div id="hotbar">
-        <!-- Slot 1: Interface Pad -->
+        <!-- Slot 1: Grid Anchor -->
         <button class="hotbar-slot slot-socket" data-slot="socket">
-          <span class="slot-lbl">PAD</span>
+          <span class="slot-lbl">GRID<br>ANCHOR</span>
           <span class="slot-cost">20QB</span>
-          <div class="slot-badge" id="stock-socket">0</div>
+          <div class="slot-stock-container" id="stock-socket"></div>
         </button>
 
         <!-- Slot 2: Case Mini -->
         <button class="hotbar-slot slot-case" data-slot="case-basic">
           <span class="slot-lbl">CASE(ITX)</span>
           <span class="slot-cost">40QB</span>
-          <div class="slot-badge" id="stock-case-basic">0</div>
+          <div class="slot-stock-container" id="stock-case-basic"></div>
         </button>
 
         <!-- Slot 3: Case Gaming -->
         <button class="hotbar-slot slot-case" data-slot="case-gaming">
           <span class="slot-lbl">CASE(ATX)</span>
           <span class="slot-cost">80QB</span>
-          <div class="slot-badge" id="stock-case-gaming">0</div>
+          <div class="slot-stock-container" id="stock-case-gaming"></div>
         </button>
 
         <!-- Slot 4: Board Mini -->
         <button class="hotbar-slot slot-mb" data-slot="mb-mini">
           <span class="slot-lbl">MB(ITX)</span>
           <span class="slot-cost">45QB</span>
-          <div class="slot-badge" id="stock-mb-mini">0</div>
+          <div class="slot-stock-container" id="stock-mb-mini"></div>
         </button>
 
         <!-- Slot 5: Board Gaming -->
         <button class="hotbar-slot slot-mb" data-slot="mb-atx">
           <span class="slot-lbl">MB(ATX)</span>
           <span class="slot-cost">100QB</span>
-          <div class="slot-badge" id="stock-mb-atx">0</div>
+          <div class="slot-stock-container" id="stock-mb-atx"></div>
         </button>
 
         <!-- Slot 6: CPU (i5) -->
         <button class="hotbar-slot slot-cpu" data-slot="cpu">
           <span class="slot-lbl">CPU(I5)</span>
           <span class="slot-cost">30QB</span>
-          <div class="slot-badge" id="stock-cpu">0</div>
+          <div class="slot-stock-container" id="stock-cpu"></div>
         </button>
 
         <!-- Slot 6b: CPU (i9 Extreme) -->
         <button class="hotbar-slot slot-cpu-extreme" data-slot="cpu-extreme">
           <span class="slot-lbl">CPU(I9)</span>
           <span class="slot-cost">65QB</span>
-          <div class="slot-badge" id="stock-cpu-extreme">0</div>
+          <div class="slot-stock-container" id="stock-cpu-extreme"></div>
         </button>
 
         <!-- Slot 7: RAM -->
         <button class="hotbar-slot slot-ram" data-slot="ram">
           <span class="slot-lbl">RAM</span>
           <span class="slot-cost">25QB</span>
-          <div class="slot-badge" id="stock-ram">0</div>
+          <div class="slot-stock-container" id="stock-ram"></div>
         </button>
 
         <!-- Slot 8: GPU -->
         <button class="hotbar-slot slot-gpu" data-slot="gpu">
           <span class="slot-lbl">GPU</span>
           <span class="slot-cost">50QB</span>
-          <div class="slot-badge" id="stock-gpu">0</div>
+          <div class="slot-stock-container" id="stock-gpu"></div>
+        </button>
+        <!-- Slot 8b: SSD -->
+        <button class="hotbar-slot slot-ssd" data-slot="ssd">
+          <span class="slot-lbl">SSD</span>
+          <span class="slot-cost">30QB</span>
+          <div class="slot-stock-container" id="stock-ssd"></div>
+        </button>
+
+        <!-- Slot 8c: PCIE M.2 Adapter -->
+        <button class="hotbar-slot slot-pcie-m2" data-slot="pcie-m2">
+          <span class="slot-lbl">M.2<br>ADAPTER</span>
+          <span class="slot-cost">25QB</span>
+          <div class="slot-stock-container" id="stock-pcie-m2"></div>
         </button>
 
         <!-- Slot 9: PSU -->
         <button class="hotbar-slot slot-psu" data-slot="psu">
           <span class="slot-lbl">PSU</span>
           <span class="slot-cost">40QB</span>
-          <div class="slot-badge" id="stock-psu">0</div>
+          <div class="slot-stock-container" id="stock-psu"></div>
         </button>
 
         <!-- Slot 10: Cooler -->
         <button class="hotbar-slot slot-cooler" data-slot="cooler">
           <span class="slot-lbl">COOLER</span>
           <span class="slot-cost">35QB</span>
-          <div class="slot-badge" id="stock-cooler">0</div>
+          <div class="slot-stock-container" id="stock-cooler"></div>
         </button>
 
         <!-- Slot 11: Repair Tool -->
         <button class="hotbar-slot danger-slot slot-repair" data-slot="repair">
           <span class="slot-lbl">REPAIR</span>
           <span class="slot-cost">40QB</span>
-          <div class="slot-badge" id="stock-repair">0</div>
+          <div class="slot-stock-container" id="stock-repair"></div>
         </button>
       </div>
     </div>
@@ -224,9 +292,9 @@
             <span class="level-num">SECTOR 02</span>
             <span class="level-status-icon" id="status-level-2">🔒</span>
           </div>
-          <h3>Power Grid</h3>
-          <p class="level-desc">Balance the regulator wattage limits. Deploy PSUs and run active RTX cryptominers.</p>
-          <div class="level-info">Difficulty: MEDIUM | Reward: Liquid Cooling / i9 Unlocks</div>
+          <h3>Crypto Exchange</h3>
+          <p class="level-desc">Peaceful trading sandbox. Build mining computers to mine Hashes and Chia, and trade on the market.</p>
+          <div class="level-info">Difficulty: MEDIUM | Reward: Liquid Cooler / i9 CPU / SSD Unlocks</div>
         </div>
         
         <!-- Level 3 -->
