@@ -113,6 +113,9 @@ class GameController {
     });
     document.getElementById('btn-restart').addEventListener('click', () => this.restartGame());
     document.getElementById('btn-next-wave').addEventListener('click', () => this.startNextWave());
+    document.getElementById('btn-zoom-in')?.addEventListener('click', () => this.renderer.camera.zoomIn());
+    document.getElementById('btn-zoom-out')?.addEventListener('click', () => this.renderer.camera.zoomOut());
+    document.getElementById('btn-reset-cam')?.addEventListener('click', () => this.renderer.camera.resetView());
     document.getElementById('btn-close-monitor').addEventListener('click', () => this.deselectTower());
     document.getElementById('btn-toggle-hardware').addEventListener('click', () => this.toggleHardwareExpanded());
     document.getElementById('btn-sell-hashes').addEventListener('click', () => this.sellHashes());
@@ -238,7 +241,7 @@ class GameController {
     this.marketTimer = 0;
 
     // Show/Hide Level Specific UI Panels
-    if (levelId === 1 || levelId === 3) {
+    if (levelId === 1 || levelId === 3 || levelId === 4) {
       document.getElementById('market-panel').classList.add('hidden');
       document.getElementById('objectives-panel').classList.add('hidden');
       document.getElementById('stat-hashes').style.display = 'none';
@@ -326,11 +329,11 @@ class GameController {
     
     let unlocks = [];
     if (this.levelManager.currentLevelId === 1) {
-      unlocks = ["RTX GPU MINER", "80+ PLATINUM PSU", "SECTOR 02: CRYPTO EXCHANGE"];
+      unlocks = ["RTX GPU MINER", "M.2 NVMe SSD", "PCIE M.2 ADAPTER", "SECTOR 02: CRYPTO EXCHANGE"];
     } else if (this.levelManager.currentLevelId === 2) {
-      unlocks = ["LIQUID AIO COOLER", "CORE I9 EXTREME CPU", "SECTOR 03: LIQUID CORE"];
+      unlocks = ["DDR5 RAM", "LIQUID AIO COOLER", "REPAIR KIT", "SECTOR 03: LIQUID CORE"];
     } else if (this.levelManager.currentLevelId === 3) {
-      unlocks = ["SECTOR 04: ENDLESS COMPILER"];
+      unlocks = ["CORE I9 EXTREME CPU", "ATX MOTHERBOARD", "GAMING ATX CASE", "80+ PLATINUM PSU", "SECTOR 04: ENDLESS COMPILER"];
     }
     
     unlocks.forEach(item => {
@@ -929,9 +932,11 @@ class GameController {
     
     // If wave has started and we are resting, award overclocking bonus
     if (this.waveNumber > 0 && this.waveRestTimer > 0) {
-      const bonusQB = Math.ceil(this.waveRestTimer);
-      this.bits += bonusQB;
-      this.showNotification(`OVERCLOCK BONUS: +${bonusQB}QB`);
+      const bonusQB = Math.floor(this.waveRestTimer / 3);
+      if (bonusQB > 0) {
+        this.bits += bonusQB;
+        this.showNotification(`OVERCLOCK BONUS: +${bonusQB}QB`);
+      }
     }
     
     this.waveRestTimer = 0;
@@ -978,6 +983,8 @@ class GameController {
     
     // Manage visibility of wave initialization button dynamically
     if (this.currentLevel && this.currentLevel.id === 3 && this.tutorial && this.tutorial.step < 5) {
+      btn.style.display = 'none';
+    } else if (this.currentLevel && this.currentLevel.id === 4 && this.tutorial && this.tutorial.step < 4) {
       btn.style.display = 'none';
     } else if (this.currentLevel && this.currentLevel.id === 2) {
       btn.style.display = 'none';
@@ -1132,9 +1139,9 @@ class GameController {
 
     // 2d. Check Sector 2 Victory Conditions (Checklist objectives)
     if (this.currentLevel && this.currentLevel.id === 2 && this.gameActive) {
-      const hashesMet = this.totalHashesMined >= 100;
-      const chiaMet = this.totalChiaMined >= 200;
-      const qbMet = this.bits >= 600;
+      const hashesMet = this.totalHashesMined >= (this.currentLevel.targetHashes || 100);
+      const chiaMet = this.totalChiaMined >= (this.currentLevel.targetChia || 200);
+      const qbMet = this.bits >= (this.currentLevel.targetQB || 450);
       if (hashesMet && chiaMet && qbMet) {
         this.levelCleared();
       }
@@ -1265,6 +1272,11 @@ class GameController {
       const reward = 50 + this.waveNumber * 10;
       this.bits += reward;
       this.showNotification(`WAVE REWARD: +${reward}QB`);
+
+      // Hook: Notify tutorial wave completion
+      if (this.tutorial) {
+        this.tutorial.onActionTriggered('waveComplete', this.waveNumber);
+      }
       
       this.updateHUD();
       this.updateHotbarUI();
@@ -1280,7 +1292,7 @@ class GameController {
         // Update countdown button live
         const btn = document.getElementById('btn-next-wave');
         if (btn) {
-          const bonusQB = Math.ceil(this.waveRestTimer);
+          const bonusQB = Math.floor(this.waveRestTimer / 3);
           btn.innerText = `OVERCLOCK (+${bonusQB}QB)`;
         }
       }
@@ -1354,11 +1366,15 @@ class GameController {
     const qbText = document.querySelector('#obj-qb .text');
     const qbCheck = document.querySelector('#obj-qb .checkbox');
     
-    const hashesMet = this.totalHashesMined >= 100;
-    const chiaMet = this.totalChiaMined >= 200;
-    const qbMet = this.bits >= 600;
+    const targetQB = (this.currentLevel && this.currentLevel.targetQB) || 450;
+    const targetHashes = (this.currentLevel && this.currentLevel.targetHashes) || 100;
+    const targetChia = (this.currentLevel && this.currentLevel.targetChia) || 200;
+
+    const hashesMet = this.totalHashesMined >= targetHashes;
+    const chiaMet = this.totalChiaMined >= targetChia;
+    const qbMet = this.bits >= targetQB;
     
-    if (hashesText) hashesText.innerText = `Mine 100 Hashes (${this.totalHashesMined.toFixed(0)}/100)`;
+    if (hashesText) hashesText.innerText = `Mine ${targetHashes} Hashes (${this.totalHashesMined.toFixed(0)}/${targetHashes})`;
     if (hashesCheck) hashesCheck.innerText = hashesMet ? '[✓]' : '[ ]';
     if (hashesCheck && hashesText) {
       if (hashesMet) {
@@ -1368,7 +1384,7 @@ class GameController {
       }
     }
     
-    if (chiaText) chiaText.innerText = `Mine 200 Chia (${this.totalChiaMined.toFixed(0)}/200)`;
+    if (chiaText) chiaText.innerText = `Mine ${targetChia} Chia (${this.totalChiaMined.toFixed(0)}/${targetChia})`;
     if (chiaCheck) chiaCheck.innerText = chiaMet ? '[✓]' : '[ ]';
     if (chiaCheck && chiaText) {
       if (chiaMet) {
@@ -1378,7 +1394,7 @@ class GameController {
       }
     }
     
-    if (qbText) qbText.innerText = `Accumulate 600 QB (${Math.floor(this.bits)}/600)`;
+    if (qbText) qbText.innerText = `Accumulate ${targetQB} QB (${Math.floor(this.bits)}/${targetQB})`;
     if (qbCheck) qbCheck.innerText = qbMet ? '[✓]' : '[ ]';
     if (qbCheck && qbText) {
       if (qbMet) {

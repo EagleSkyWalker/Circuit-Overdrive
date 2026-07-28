@@ -24,6 +24,17 @@ export class TutorialController {
         ram: 0,
         psu: 0
       };
+    } else if (this.levelId === 4) {
+      this.buys = {
+        psu: 0,
+        repair: 0,
+        socket: 0,
+        'case-basic': 0,
+        'mb-mini': 0,
+        'cpu-extreme': 0,
+        cooler: 0,
+        ram: 0
+      };
     } else {
       this.buys = {
         socket: 0,
@@ -37,7 +48,7 @@ export class TutorialController {
     const sysopPanel = document.getElementById('sysop-panel');
     if (sysopPanel) {
       const advanceFn = () => {
-        if (this.levelId === 3 && (this.step === 0 || this.step === 2)) {
+        if ((this.levelId === 3 || this.levelId === 4) && (this.step === 0 || this.step === 2)) {
           this.step++;
           this.refreshActiveInstruction();
         } else if (this.levelId === 2 && this.step === 0) {
@@ -58,7 +69,7 @@ export class TutorialController {
     if (this.levelId === 2) {
       switch(this.step) {
         case 0:
-          sysop.showMessage("SEC-BIOS Sector 02 diagnostics complete. It is a peaceful mining partition with zero malware threads! We will construct two mining rigs: one equipped with a GPU to mine Hashes, and a second equipped with SSDs to mine Chia. But remember, the Mini-ITX motherboard only has 1 native M.2 slot! To fit a second SSD, we must use a PCIE M.2 Adapter card in the PCIE (GPU) lane. Click this dialogue panel to close it and review the plan.");
+          sysop.showMessage("SEC-BIOS Sector 02 diagnostics complete. It is a peaceful mining partition with zero malware threads! We will construct two mining rigs: one equipped with a GPU to mine <span class='sysop-highlight-hash'>Hashes</span>, and a second equipped with SSDs to mine <span class='sysop-highlight-chia'>Chia</span>. But remember, the Mini-ITX motherboard only has 1 native M.2 slot! To fit a second SSD, we must use a PCIE M.2 Adapter card in the PCIE (GPU) lane. Click this dialogue panel to close it and review the plan.");
           break;
         case 1:
           sysop.showMessage("We have 350 QB. First, BUY the required parts from the hotbar: 2x <span class='sysop-highlight-anchor'>GRID ANCHOR</span>, 2x <span class='sysop-highlight-case'>CASE(ITX)</span>, 2x <span class='sysop-highlight-mb'>MB(ITX)</span>, 1x <span class='sysop-highlight-mb'>GPU</span>, 2x <span class='sysop-highlight-anchor'>SSD</span>, and 1x <span class='sysop-highlight-cpu'>M.2 ADAPTER</span>.");
@@ -70,10 +81,10 @@ export class TutorialController {
           sysop.showMessage("First, assemble your GPU miner machine! Place an Anchor, Case, Motherboard, and slot in the GPU. This rig will draw exactly 40W (matching the Motherboard's native 40W capacity, so no PSU is needed in this sector!).");
           break;
         case 4:
-          sysop.showMessage("First machine mining Hashes! Now place the second Anchor, Case, and Motherboard. First, install one SSD directly into the motherboard's native M.2 slot. Then install the M.2 ADAPTER card into the PCIE slot (GPU slot) to add 4 extra M.2 slots, and finally slot the second SSD in!");
+          sysop.showMessage("First machine mining <span class='sysop-highlight-hash'>Hashes</span>! Now place the second Anchor, Case, and Motherboard. First, install one SSD directly into the motherboard's native M.2 slot. Then install the M.2 ADAPTER card into the PCIE slot (GPU slot) to add 4 extra M.2 slots, and finally slot the second SSD in!");
           break;
         case 5:
-          sysop.showMessage("Excellent! Both rigs are mining. Trade your accumulated Hashes and Chia on the left-side MARKET EXCHANGE to reach the new target quota of 600 QB! All shop limits are now lifted: you can buy more parts to build more machines to mine even faster!");
+          sysop.showMessage("Excellent! Both rigs are mining. Trade your accumulated <span class='sysop-highlight-hash'>Hashes</span> and <span class='sysop-highlight-chia'>Chia</span> on the left-side MARKET EXCHANGE to reach the new target quota of 450 QB! All shop limits are now lifted: you can buy more parts to build more machines to mine even faster!");
           break;
       }
     } else if (this.levelId === 3) {
@@ -98,6 +109,27 @@ export class TutorialController {
           break;
         case 6:
           sysop.showMessage("Glitches and Trojan payloads detected! Stay vigilant—heavy malware loads generate massive heat spikes when fired. Keep them cool!");
+          break;
+      }
+    } else if (this.levelId === 4) {
+      switch(this.step) {
+        case 0:
+          sysop.showMessage("SYS-OP CRITICAL ALERT! Sector 04: Power Distribution. The pre-existing rig at cell [7, 4] is completely crashed because it is OVERLOADED on power! It runs a Core i9 Extreme CPU, 2x RAM, and Cooler drawing 60W, but the basic motherboard capacity is only 40W! We must install a PSU first to solve this, and then repair it. Click this panel to close it and review the plan.");
+          break;
+        case 1:
+          sysop.showMessage("First, we must prepare to bring the server back online. Switch to BUY mode and BUY 1x <span class='sysop-highlight-anchor'>PSU</span> (80+ Platinum PSU) and 1x <span class='sysop-highlight-repair'>REPAIR</span> kit from the hotbar!");
+          break;
+        case 2:
+          sysop.showMessage("SEC-LOG: Installing a PSU supplies +110W of electricity to the motherboard and reduces ambient heat generation by 35%. Click this dialogue panel to acknowledge!");
+          break;
+        case 3:
+          sysop.showMessage("Now click the MODE toggle to switch to BUILD mode. Select coordinate cell [7, 4], slot in the PSU first to resolve the motherboard overload, then apply the REPAIR kit to reboot the machine!");
+          break;
+        case 4:
+          sysop.showMessage("Server at [7, 4] restored and stable! Excellent work. Now you are on your own—buy and build whatever components you need to defend this dual-lane grid. Build powerful Core i9 rigs with RAM for massive DPS, and survive all 3 waves!");
+          break;
+        case 5:
+          sysop.showMessage("Malware threads compiling! Keep an eye on system wattage, heat levels, and Kernel integrity across all 3 waves!");
           break;
       }
     } else {
@@ -200,6 +232,31 @@ export class TutorialController {
         return true;
       }
       return false;
+    } else if (this.levelId === 4) {
+      if (this.step >= 4) {
+        return true; // Complete sandbox freedom after fixing the pre-placed rig!
+      }
+      if (this.step === 0) {
+        this.step = 1;
+        this.refreshActiveInstruction();
+      }
+      if (this.step === 1) {
+        const limits = { psu: 1, repair: 1 };
+        if (!(slotName in limits)) {
+          this.game.sysop.showError("SEQUENCE VIOLATION. BUY A PSU AND A REPAIR KIT FIRST!");
+          return false;
+        }
+        if (this.buys[slotName] >= limits[slotName]) {
+          this.game.sysop.showError(`ALREADY ACQUIRED. YOU ONLY NEED 1x ${slotName.toUpperCase()} FOR THIS INITIAL PHASE.`);
+          return false;
+        }
+        return true;
+      }
+      if (this.step === 2 || this.step === 3) {
+        this.game.sysop.showError("SEQUENCE VIOLATION. RESOLVE THE POWER OVERLOAD AND REBOOT TOWER [7, 4] FIRST.");
+        return false;
+      }
+      return false;
     }
 
     if (this.step !== 0) {
@@ -257,6 +314,17 @@ export class TutorialController {
         }
       }
       return true;
+    } else if (this.levelId === 4) {
+      if (this.step >= 4) {
+        return true;
+      }
+      if (goingToBuild) {
+        if (this.step === 0 || this.step === 1) {
+          this.game.sysop.showError("CRITICAL EXCEPTION. BUY BOTH THE PSU AND REPAIR KIT FIRST.");
+          return false;
+        }
+      }
+      return true;
     }
 
     if (goingToBuild && this.step === 0) {
@@ -299,6 +367,16 @@ export class TutorialController {
         return false;
       }
       return true;
+    } else if (this.levelId === 4) {
+      if (this.step < 3) {
+        this.game.sysop.showError("SEQUENCE VIOLATION. COMPLETE CURRENT OBJECTIVE BEFORE GRID INTERACTION.");
+        return false;
+      }
+      if (this.step === 3 && (col !== 7 || row !== 4)) {
+        this.game.sysop.showError("GRID DEPLOYMENT REJECTED. INTERRUPTED ADDRESS ACCESS. DEPLOY THE PSU AND REPAIR KIT TO CELL [7, 4] FIRST!");
+        return false;
+      }
+      return true;
     }
 
     if (this.step < 2) {
@@ -320,7 +398,7 @@ export class TutorialController {
     if (this.levelId === 2 && this.step === 5) {
       return true; // Lifting all constraints in the sandbox phase
     }
-    if (this.levelId === 3 && (this.step === 5 || this.step === 6)) {
+    if ((this.levelId === 3 && (this.step === 5 || this.step === 6)) || (this.levelId === 4 && this.step >= 4)) {
       return true; // Lifting all constraints in the sandbox/combat phase
     }
 
@@ -336,8 +414,8 @@ export class TutorialController {
         this.game.sysop.showError("[FATAL ERROR] CIRCUIT SIGNAL SCATTER. MOTHERBOARD PIN CONFIGURATION EXPOSED. ALRIGHT, WHO TAUGHT YOU ENGINEERING?! YOU JUST PLACED A <span class='sysop-highlight-mb'>MOTHERBOARD</span> ON A BARE ANCHOR WITH NO <span class='sysop-highlight-case'>CASE</span>! THERE IS NO CHASSIS! NO AIRFLOW! INSTALL A <span class='sysop-highlight-case'>CASE</span> FIRST!");
         return false;
       }
-      if (item === 'cpu' && (!tower || !tower.motherboard)) {
-        this.game.sysop.showError("[FATAL ERROR] SILICON PIN ALIGNMENT FAILED. CORE INTEGRITY COMPROMISED. SERIOUSLY?! WHERE DO YOU THINK THE <span class='sysop-highlight-cpu'>CPU</span> PLUGS INTO?! THIN AIR?! <span class='sysop-highlight-mb'>MOTHERBOARDS</span> HOUSE THE PROCESSOR CORES! DEPLOY A <span class='sysop-highlight-mb'>MOTHERBOARD</span> FIRST!");
+      if ((item === 'cpu' || item === 'cpu-extreme') && (!tower || !tower.motherboard)) {
+        this.game.sysop.showError("[FATAL ERROR] SILICON PIN ALIGNMENT FAILED. CORE INTEGRITY COMPROMISED. SERIOUSLY?! WHERE DO YOU THINK THE CPU PLUGS INTO?! THIN AIR?! MOTHERBOARDS HOUSE THE PROCESSOR CORES! DEPLOY A MOTHERBOARD FIRST!");
         return false;
       }
     }
@@ -367,6 +445,12 @@ export class TutorialController {
     } else if (this.levelId === 3) {
       if (this.step === 3 && item !== 'repair' && item !== 'cooler') {
         this.game.sysop.showError("SEQUENCE VIOLATION. APPLY THE REPAIR KIT AND LIQUID COOLER ON CELL [8, 3]!");
+        return false;
+      }
+      return true;
+    } else if (this.levelId === 4) {
+      if (this.step === 3 && item !== 'psu' && item !== 'repair') {
+        this.game.sysop.showError("SEQUENCE VIOLATION. INSTALL THE PSU AND APPLY THE REPAIR KIT ON CELL [7, 4] FIRST!");
         return false;
       }
       return true;
@@ -478,6 +562,43 @@ export class TutorialController {
         if (this.step === 5) {
           this.step = 6;
           this.refreshActiveInstruction();
+        }
+      }
+      return;
+    } else if (this.levelId === 4) {
+      if (actionType === 'buy') {
+        this.buys[data]++;
+        if (this.step === 1 && this.buys.psu >= 1 && this.buys.repair >= 1) {
+          this.step = 2;
+          this.refreshActiveInstruction();
+        }
+      }
+      else if (actionType === 'toggleMode') {
+        if (this.game.uiMode === 'BUILD' && this.step === 2) {
+          this.step = 3;
+          this.refreshActiveInstruction();
+        }
+      }
+      else if (actionType === 'buildItem') {
+        if (this.step === 3) {
+          // Check if overloaded tower at [7, 4] is restored (has psu installed, not broken, active)
+          const tower = this.game.towers.find(t => t.gridX === 7 && t.gridY === 4);
+          if (tower && tower.status === 'active' && tower.motherboard && tower.motherboard.installed.psu.length > 0) {
+            this.step = 4;
+            this.refreshActiveInstruction();
+            this.game.updateHUD(); // reveals initialize protocol wave button immediately!
+          }
+        }
+      }
+      else if (actionType === 'startWave') {
+        if (this.step === 4) {
+          this.step = 5;
+          this.refreshActiveInstruction();
+        }
+      }
+      else if (actionType === 'waveComplete') {
+        if (data === 2) {
+          this.game.sysop.showMessage("SYS-OP WARNING! CRITICAL INTRUSION IMMINENT! Wave 3 contains a massive Trojan payload assault! Ensure you have built high-powered rigs to hold the dual lanes!");
         }
       }
       return;

@@ -1019,6 +1019,8 @@ body, html {
 .sysop-highlight-cpu { color: #ff0055 !important; font-weight: bold; }
 .sysop-highlight-repair { color: #ff0032 !important; font-weight: bold; }
 .sysop-highlight-cooler { color: #00ffcc !important; font-weight: bold; }
+.sysop-highlight-hash { color: #ffb700 !important; font-weight: bold; }
+.sysop-highlight-chia { color: #00aaff !important; font-weight: bold; }
 
 /* Hotbar Slot Colors: SSD & PCIE M.2 Adapter */
 .slot-ssd { border-color: rgba(0, 170, 255, 0.3) !important; }

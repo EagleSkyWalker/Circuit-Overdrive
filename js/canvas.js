@@ -119,6 +119,8 @@ export class GameRenderer {
         this.drawTutorialTarget(9, 5);
       } else if (gameState.currentLevel.id === 3 && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
         this.drawTutorialTarget(8, 3);
+      } else if (gameState.currentLevel.id === 4 && (gameState.tutorial.step === 2 || gameState.tutorial.step === 3)) {
+        this.drawTutorialTarget(7, 4);
       }
     }
 
@@ -270,6 +272,13 @@ export class GameRenderer {
         packet.progress = 0;
       }
       const path = paths[packet.pathIdx];
+      if (!path || path.length < 2) return;
+
+      if (packet.waypointIdx >= path.length - 1) {
+        packet.waypointIdx = 0;
+        packet.progress = 0;
+      }
+
       packet.progress += packet.speed * 0.05;
       
       if (packet.progress >= 1) {
@@ -283,22 +292,24 @@ export class GameRenderer {
       const p1 = path[packet.waypointIdx];
       const p2 = path[packet.waypointIdx + 1];
 
-      const x1 = p1.x * cellSize + cellSize / 2;
-      const y1 = p1.y * cellSize + cellSize / 2;
-      const x2 = p2.x * cellSize + cellSize / 2;
-      const y2 = p2.y * cellSize + cellSize / 2;
+      if (p1 && p2) {
+        const x1 = p1.x * cellSize + cellSize / 2;
+        const y1 = p1.y * cellSize + cellSize / 2;
+        const x2 = p2.x * cellSize + cellSize / 2;
+        const y2 = p2.y * cellSize + cellSize / 2;
 
-      // Interpolated position
-      const px = x1 + (x2 - x1) * packet.progress;
-      const py = y1 + (y2 - y1) * packet.progress;
+        // Interpolated position
+        const px = x1 + (x2 - x1) * packet.progress;
+        const py = y1 + (y2 - y1) * packet.progress;
 
-      // Glow effect on drawing context
-      this.ctx.shadowBlur = 8;
-      this.ctx.shadowColor = packet.color;
-      this.ctx.fillStyle = packet.color;
-      this.ctx.beginPath();
-      this.ctx.arc(px, py, packet.size, 0, Math.PI * 2);
-      this.ctx.fill();
+        // Glow effect on drawing context
+        this.ctx.shadowBlur = 8;
+        this.ctx.shadowColor = packet.color;
+        this.ctx.fillStyle = packet.color;
+        this.ctx.beginPath();
+        this.ctx.arc(px, py, packet.size, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
     });
 
     this.ctx.restore();

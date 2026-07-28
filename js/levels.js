@@ -18,7 +18,7 @@ export const LEVELS = {
   2: {
     id: 2,
     name: "Sector 2: Crypto Exchange",
-    desc: "Peaceful sandbox. Construct mining rigs to mine Hashes and Chia, and trade on the stock market to reach 600 QB.",
+    desc: "Peaceful sandbox. Construct mining rigs to mine Hashes and Chia, and trade on the stock market to reach 450 QB.",
     startingBits: 350,
     waves: 0,
     waveSetup: (waveNum) => [],
@@ -26,7 +26,19 @@ export const LEVELS = {
     isTutorial: true,
     targetHashes: 100,
     targetChia: 200,
-    targetQB: 600
+    targetQB: 450,
+    paths: [
+      [
+        { x: 0, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    uniqueTraces: [
+      [
+        { x: 0, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ]
   },
   3: {
     id: 3,
@@ -86,21 +98,80 @@ export const LEVELS = {
   },
   4: {
     id: 4,
-    name: "Sector 4: Endless Compiler",
-    desc: "Defend against scaling waves of malware on a dynamic circuit grid.",
-    startingBits: 400,
-    waves: Infinity,
+    name: "Sector 4: Power Distribution",
+    desc: "Address power limits by installing PSUs. Restore an overloaded firewall server and build another high-draw Core i9 machine.",
+    startingBits: 275,
+    waves: 3,
     waveSetup: (waveNum) => {
       const queue = [];
-      const glitches = 5 + waveNum * 2;
-      const worms = waveNum > 2 ? 3 + waveNum : 0;
-      const trojans = waveNum > 5 ? Math.floor(waveNum / 2) : 0;
-      for (let i = 0; i < glitches; i++) queue.push('glitch');
-      for (let i = 0; i < worms; i++) queue.push('worm');
-      for (let i = 0; i < trojans; i++) queue.push('trojan');
+      if (waveNum === 1) {
+        // Wave 1 (Easy reconnaissance): 4 Glitches, 2 Worms (480 total HP)
+        for (let i = 0; i < 4; i++) queue.push('glitch');
+        for (let i = 0; i < 2; i++) queue.push('worm');
+      } else if (waveNum === 2) {
+        // Wave 2 (Moderate push): 6 Glitches, 4 Worms, 1 Trojan (1120 total HP)
+        for (let i = 0; i < 6; i++) queue.push('glitch');
+        for (let i = 0; i < 4; i++) queue.push('worm');
+        for (let i = 0; i < 1; i++) queue.push('trojan');
+      } else {
+        // Wave 3 (Final heavy assault calibrated for 2x i9 + 2x RAM rigs): 8 Glitches, 8 Worms, 6 Trojans (3120 total HP)
+        for (let i = 0; i < 8; i++) queue.push('glitch');
+        for (let i = 0; i < 8; i++) queue.push('worm');
+        for (let i = 0; i < 6; i++) queue.push('trojan');
+      }
       return queue.sort(() => Math.random() - 0.5);
     },
-    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'cpu', 'cpu-extreme', 'ram', 'gpu', 'psu', 'cooler', 'repair', 'ssd', 'pcie-m2']
+    unlockedParts: ['socket', 'case-basic', 'mb-mini', 'cpu', 'cpu-extreme', 'ram', 'psu', 'cooler', 'repair'],
+    isTutorial: true,
+    paths: [
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 },
+        { x: 2, y: 3 },
+        { x: 13, y: 3 },
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ],
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 },
+        { x: 2, y: 5 },
+        { x: 13, y: 5 },
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    uniqueTraces: [
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 },
+        { x: 2, y: 3 },
+        { x: 13, y: 3 },
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ],
+      [
+        { x: 2, y: 4 },
+        { x: 2, y: 5 },
+        { x: 13, y: 5 },
+        { x: 13, y: 4 }
+      ]
+    ],
+    onInit: (game) => {
+      // Spawn overloaded tower at coordinate [7, 4]
+      const tower = new PcTower(7, 4);
+      tower.installCase('basic');
+      tower.installMotherboard('mini-itx');
+      tower.installComponent('cpu-extreme'); // i9: 40W
+      tower.installComponent('ram'); // RAM 1: 5W
+      tower.installComponent('ram'); // RAM 2: 5W
+      tower.installComponent('cooler'); // Cooler: 10W
+      // Total draw = 60W. Mini-ITX capacity = 40W.
+      tower.status = 'broken';
+      tower.hp = 0;
+      tower.heat = 45.0;
+      game.towers.push(tower);
+    }
   }
 };
 
