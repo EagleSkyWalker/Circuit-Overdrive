@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Circuit Overdrive</title>
+  <!-- Google Fonts for futuristic HUD typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Game Container to lock 16:9 aspect ratio -->
+  <div id="game-container">
+    
+    <!-- The HTML5 canvas where the game board is rendered -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top Sliding Notification Banner -->
+    <div id="top-notification" class="notification-banner glass-panel hidden">
+      <span id="notif-text">WAVE REWARD: +0QB</span>
+    </div>
+
+    <!-- Sleek Glassmorphic HUD overlay -->
+    <div id="hud" class="hud-layer hidden">
+      <div class="hud-stat" id="stat-bits">
+        <span class="label">QUBITS</span>
+        <span class="value" id="val-bits">0000</span>
+      </div>
+      <div class="hud-stat" id="stat-hashes">
+        <span class="label">HASHES</span>
+        <span class="value" id="val-hashes">0</span>
+      </div>
+      <div class="hud-stat" id="stat-chias">
+        <span class="label">CHIA</span>
+        <span class="value" id="val-chias">0</span>
+      </div>
+      <div class="hud-stat" id="stat-integrity">
+        <span class="label">KERNEL HP</span>
+        <span class="value" id="val-integrity">100%</span>
+        <div class="hp-bar-container"><div id="hp-bar-fill"></div></div>
+      </div>
+      <div class="hud-stat" id="stat-wave">
+        <span class="label">WAVE</span>
+        <span class="value" id="val-wave">0</span>
+      </div>
+      <div class="hud-controls">
+        <button id="btn-zoom-in" class="hud-btn glow-btn" title="Zoom In (+)">+</button>
+        <button id="btn-zoom-out" class="hud-btn glow-btn" title="Zoom Out (-)">-</button>
+        <button id="btn-reset-cam" class="hud-btn glow-btn" title="Reset View">⟲</button>
+        <button id="btn-next-wave" class="hud-btn glow-btn">NEXT WAVE</button>
+      </div>
+    </div>
+
+    <!-- Objectives Panel (Left side) -->
+    <div id="objectives-panel" class="objectives-panel glass-panel hidden">
+      <div class="panel-header">
+        <span class="neon-cyan">SECTOR OBJECTIVES</span>
+      </div>
+      <div class="panel-content">
+        <ul id="objectives-list" class="objectives-list">
+          <li id="obj-hashes" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Mine 100 Hashes (0/100)</span>
+          </li>
+          <li id="obj-chia" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Mine 200 Chia (0/200)</span>
+          </li>
+          <li id="obj-qb" class="obj-item">
+            <span class="checkbox">[]</span>
+            <span class="text">Accumulate 600 QB (0/600)</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Market exchange monitor (Left side) -->
+    <div id="market-panel" class="market-panel glass-panel hidden">
+      <div class="market-header">
+        <span class="neon-purple">MARKET EXCHANGE</span>
+      </div>
+      <div class="market-content">
+        <div class="market-row">
+          <div class="market-label">HASH Price</div>
+          <div class="market-rate" id="val-hash-rate">2.0 QB</div>
+          <div class="market-trend" id="val-hash-trend">--</div>
+        </div>
+        <div class="market-row">
+          <div class="market-label">CHIA Price</div>
+          <div class="market-rate" id="val-chia-rate">0.8 QB</div>
+          <div class="market-trend" id="val-chia-trend">--</div>
+        </div>
+        <hr class="market-divider">
+        <div class="market-sell-buttons">
+          <button id="btn-sell-hashes" class="market-btn glow-btn">SELL HASHES</button>
+          <button id="btn-sell-chias" class="market-btn glow-btn">SELL CHIA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Tower Stats Monitor (Top Right) -->
+    <div id="tower-monitor" class="monitor-panel glass-panel hidden">
+      <div class="monitor-header">
+        <span id="mon-title" class="neon-cyan">TOWER MONITOR</span>
+        <button id="btn-close-monitor" class="small-close">&times;</button>
+      </div>
+      <div class="monitor-content">
+        <div class="mon-row"><span>Type:</span> <span id="mon-type">Socket</span></div>
+        <div class="mon-row"><span>Status:</span> <span id="mon-status" class="neon-green">ACTIVE</span></div>
+        <div class="mon-row"><span>HP:</span> <span id="mon-hp" class="neon-green">100/100</span></div>
+        <div class="mon-row"><span>Damage:</span> <span id="mon-dmg" class="neon-red">0</span></div>
+        <div class="mon-row"><span>Clock Rate:</span> <span id="mon-speed" class="neon-purple">0/s</span></div>
+        <div class="mon-row"><span>Range:</span> <span id="mon-range" class="neon-cyan">0 Tiles</span></div>
+        <div class="mon-row"><span>Cooling:</span> <span id="mon-cooling" class="neon-green">0°C/s</span></div>
+        <div class="mon-row"><span>Wattage:</span> <span id="mon-wattage">0W/0W</span></div>
+        <div class="mon-row"><span>Temp:</span> <span id="mon-temp" class="neon-cyan">30°C</span></div>
+        
+        <div class="mon-components-section">
+          <div id="btn-toggle-hardware" class="sec-header-toggle">
+            <span class="sec-lbl">HARDWARE SLOTS</span>
+            <span id="hardware-toggle-icon" class="toggle-icon">▶</span>
+          </div>
+          <div id="hardware-list-container" class="collapsed">
+            <ul id="mon-hardware-list">
+              <li>No motherboard installed</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom HUD Hotbar UI Tooltip -->
+    <div id="hotbar-tooltip" class="tooltip-bar-layer hidden">
+      Select an item to view specifications.
+    </div>
+
+    <!-- Bottom HUD Hotbar UI (Mobile Friendly) -->
+    <div id="bottom-bar" class="bottom-bar-layer hidden">
+      <!-- Mode Toggle Button -->
+      <button id="btn-mode-toggle" class="mode-btn buy-mode">
+        <span class="mode-lbl">MODE</span>
+        <span class="mode-state" id="val-mode">BUY</span>
+      </button>
+
+      <!-- The Hotbar Slots container -->
+      <div id="hotbar">
+        <!-- Slot 1: Grid Anchor -->
+        <button class="hotbar-slot slot-socket" data-slot="socket">
+          <span class="slot-lbl">GRID<br>ANCHOR</span>
+          <span class="slot-cost">20QB</span>
+          <div class="slot-stock-container" id="stock-socket"></div>
+        </button>
+
+        <!-- Slot 2: Case Mini -->
+        <button class="hotbar-slot slot-case" data-slot="case-basic">
+          <span class="slot-lbl">CASE(ITX)</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-stock-container" id="stock-case-basic"></div>
+        </button>
+
+        <!-- Slot 3: Case Gaming -->
+        <button class="hotbar-slot slot-case" data-slot="case-gaming">
+          <span class="slot-lbl">CASE(ATX)</span>
+          <span class="slot-cost">80QB</span>
+          <div class="slot-stock-container" id="stock-case-gaming"></div>
+        </button>
+
+        <!-- Slot 4: Board Mini -->
+        <button class="hotbar-slot slot-mb" data-slot="mb-mini">
+          <span class="slot-lbl">MB(ITX)</span>
+          <span class="slot-cost">45QB</span>
+          <div class="slot-stock-container" id="stock-mb-mini"></div>
+        </button>
+
+        <!-- Slot 5: Board ATX -->
+        <button class="hotbar-slot slot-mb" data-slot="mb-atx">
+          <span class="slot-lbl">MB(ATX)</span>
+          <span class="slot-cost">100QB</span>
+          <div class="slot-stock-container" id="stock-mb-atx"></div>
+        </button>
+
+        <!-- Slot 5b: Board EE-ATX Dual-Socket -->
+        <button class="hotbar-slot slot-mb-eeatx" data-slot="mb-eeatx">
+          <span class="slot-lbl">EE-ATX</span>
+          <span class="slot-cost">180QB</span>
+          <div class="slot-stock-container" id="stock-mb-eeatx"></div>
+        </button>
+
+        <!-- Slot 6: CPU (i5) -->
+        <button class="hotbar-slot slot-cpu" data-slot="cpu">
+          <span class="slot-lbl">CPU(I5)</span>
+          <span class="slot-cost">30QB</span>
+          <div class="slot-stock-container" id="stock-cpu"></div>
+        </button>
+
+        <!-- Slot 6b: CPU (i9 Extreme) -->
+        <button class="hotbar-slot slot-cpu-extreme" data-slot="cpu-extreme">
+          <span class="slot-lbl">CPU(I9)</span>
+          <span class="slot-cost">65QB</span>
+          <div class="slot-stock-container" id="stock-cpu-extreme"></div>
+        </button>
+
+        <!-- Slot 6c: CPU (Ryzen 5) -->
+        <button class="hotbar-slot slot-cpu-ryzen5" data-slot="cpu-ryzen5">
+          <span class="slot-lbl">RYZEN 5</span>
+          <span class="slot-cost">35QB</span>
+          <div class="slot-stock-container" id="stock-cpu-ryzen5"></div>
+        </button>
+
+        <!-- Slot 6d: CPU (Ryzen 9) -->
+        <button class="hotbar-slot slot-cpu-ryzen9" data-slot="cpu-ryzen9">
+          <span class="slot-lbl">RYZEN 9</span>
+          <span class="slot-cost">70QB</span>
+          <div class="slot-stock-container" id="stock-cpu-ryzen9"></div>
+        </button>
+
+        <!-- Slot 7: RAM -->
+        <button class="hotbar-slot slot-ram" data-slot="ram">
+          <span class="slot-lbl">RAM</span>
+          <span class="slot-cost">25QB</span>
+          <div class="slot-stock-container" id="stock-ram"></div>
+        </button>
+
+        <!-- Slot 8: GPU -->
+        <button class="hotbar-slot slot-gpu" data-slot="gpu">
+          <span class="slot-lbl">GPU</span>
+          <span class="slot-cost">50QB</span>
+          <div class="slot-stock-container" id="stock-gpu"></div>
+        </button>
+        <!-- Slot 8b: SSD -->
+        <button class="hotbar-slot slot-ssd" data-slot="ssd">
+          <span class="slot-lbl">SSD</span>
+          <span class="slot-cost">30QB</span>
+          <div class="slot-stock-container" id="stock-ssd"></div>
+        </button>
+
+        <!-- Slot 8c: PCIE M.2 Adapter -->
+        <button class="hotbar-slot slot-pcie-m2" data-slot="pcie-m2">
+          <span class="slot-lbl">M.2<br>ADAPTER</span>
+          <span class="slot-cost">25QB</span>
+          <div class="slot-stock-container" id="stock-pcie-m2"></div>
+        </button>
+
+        <!-- Slot 9: PSU -->
+        <button class="hotbar-slot slot-psu" data-slot="psu">
+          <span class="slot-lbl">PSU</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-stock-container" id="stock-psu"></div>
+        </button>
+
+        <!-- Slot 10: Cooler -->
+        <button class="hotbar-slot slot-cooler" data-slot="cooler">
+          <span class="slot-lbl">COOLER</span>
+          <span class="slot-cost">35QB</span>
+          <div class="slot-stock-container" id="stock-cooler"></div>
+        </button>
+
+        <!-- Slot 11: Repair Tool -->
+        <button class="hotbar-slot danger-slot slot-repair" data-slot="repair">
+          <span class="slot-lbl">REPAIR</span>
+          <span class="slot-cost">40QB</span>
+          <div class="slot-stock-container" id="stock-repair"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- SYS-OP Tutorial Advisor (Top Banner) -->
+    <div id="sysop-panel" class="sysop-panel glass-panel hidden">
+      <div id="sysop-avatar-wrapper" class="sysop-avatar-wrapper">
+        <svg class="sysop-avatar" viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" rx="10" fill="none" stroke="currentColor" stroke-width="2.5" class="avatar-frame"/>
+          <line x1="30" y1="42" x2="45" y2="42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" class="avatar-eye left"/>
+          <line x1="55" y1="42" x2="70" y2="42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" class="avatar-eye right"/>
+          <path d="M 35 63 Q 50 63 65 63" stroke="currentColor" stroke-width="3.5" fill="none" stroke-linecap="round" class="avatar-mouth"/>
+        </svg>
+      </div>
+      <div class="sysop-content">
+        <div id="sysop-title" class="sysop-title neon-purple">SYS-OP // SEC-BIOS</div>
+        <p id="sysop-text" class="sysop-text">Initializing Security BIOS diagnostics...</p>
+      </div>
+    </div>
+
+    <!-- Initial Title Splash Screen (STATE_TITLE) -->
+    <div id="title-splash" class="overlay">
+      <div class="splash-content-box">
+        <h1 class="glow-title-glitch splash-title" data-text="CIRCUIT OVERDRIVE">CIRCUIT OVERDRIVE</h1>
+        <p class="subtitle-slant">HARDWARE ARCHITECTURE TOWER DEFENSE</p>
+        <div class="press-start-prompt">
+          <span class="blink-prompt">[ PRESS ANY KEY OR CLICK TO BOOT SYSTEM ]</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Title Menu Screen (Slanted -8° Split Hub) -->
+    <div id="main-menu" class="overlay hidden">
+      <div id="main-menu-hub" class="main-menu-hub">
+        <!-- Left Panel: Animated Brand & FX (-8° Slanted Divider) -->
+        <div class="menu-left-panel">
+          <canvas id="glitch-canvas"></canvas>
+          <div class="brand-title-wrap">
+            <div class="title-highlight-box">
+              <div class="laser-tracer">
+                <span class="laser-line-top"></span>
+                <span class="laser-line-right"></span>
+                <span class="laser-line-bottom"></span>
+                <span class="laser-line-left"></span>
+              </div>
+              <h1 class="glow-title-glitch" data-text="CIRCUIT OVERDRIVE">CIRCUIT OVERDRIVE</h1>
+            </div>
+            <p class="subtitle-slant">COMPONENT-BUILDING TOWER DEFENSE</p>
+          </div>
+        </div>
+
+        <!-- Right Panel: Mode Selection Hub -->
+        <div class="menu-right-panel">
+          <div id="mode-hub-stack" class="mode-hub-stack">
+            <div class="brand-footer-note">
+              <span class="pulse-dot">●</span> SYSTEM READY // SELECT OPERATIONAL MODE
+            </div>
+
+            <!-- Mode 1: Boot Diagnostics (Playable Sectors 01 - 06) -->
+            <button class="mode-card-btn active-mode" id="btn-mode-boot">
+              <div class="card-glow-edge"></div>
+              <div class="card-content">
+                <div class="card-header">
+                  <span class="mode-code neon-cyan">MODE_01</span>
+                  <span class="mode-badge badge-active">PLAYABLE</span>
+                </div>
+                <h3>BOOT DIAGNOSTICS</h3>
+                <p>Guided System Assembly & Diagnostic Sectors (01 – 06). Master ITX/ATX Rigs, Power Caps, and CPU Faction tactics.</p>
+              </div>
+              <span class="card-arrow">▶</span>
+            </button>
+
+            <!-- Mode 2: Campaign: Core Breach (Coming Soon) -->
+            <button class="mode-card-btn" id="btn-mode-campaign">
+              <div class="card-glow-edge edge-purple"></div>
+              <div class="card-content">
+                <div class="card-header">
+                  <span class="mode-code neon-purple">MODE_02</span>
+                  <span class="mode-badge badge-locked">COMING SOON</span>
+                </div>
+                <h3>CAMPAIGN: CORE BREACH</h3>
+                <p>Curated narrative campaign featuring SysOp story operations, dynamic grid events, and Boss invasions.</p>
+              </div>
+              <span class="card-arrow">▶</span>
+            </button>
+
+            <!-- Mode 3: Matrix Skirmish (Coming Soon Sandbox) -->
+            <button class="mode-card-btn" id="btn-mode-skirmish">
+              <div class="card-glow-edge edge-orange"></div>
+              <div class="card-content">
+                <div class="card-header">
+                  <span class="mode-code neon-orange">MODE_03</span>
+                  <span class="mode-badge badge-locked">COMING SOON</span>
+                </div>
+                <h3>MATRIX SKIRMISH</h3>
+                <p>Regular Arcade Sandbox with all hardware unlocked from Wave 1. 3 difficulty tiers & multiplayer co-op readiness.</p>
+              </div>
+              <span class="card-arrow">▶</span>
+            </button>
+
+            <!-- Mode 4: System Settings -->
+            <button class="mode-card-btn" id="btn-mode-settings">
+              <div class="card-glow-edge edge-grey"></div>
+              <div class="card-content">
+                <div class="card-header">
+                  <span class="mode-code">MODE_04</span>
+                  <span class="mode-badge badge-util">CONFIG</span>
+                </div>
+                <h3>SYSTEM SETTINGS</h3>
+                <p>Audio diagnostics, CRT scanline toggles, visual FX settings, and data formatting utilities.</p>
+              </div>
+              <span class="card-arrow">⚙</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sector Level Selection Screen (Boot Diagnostics: Sectors 01 - 06) -->
+    <div id="level-select" class="overlay hidden">
+      <h2 class="glow-text">BOOT DIAGNOSTICS: SYSTEM SECTORS</h2>
+      <p class="subtitle">Select a partition to deploy hardware defenses.</p>
+      
+      <div class="level-cards-container">
+        <!-- Level 1 -->
+        <div class="level-card unlocked" data-level="1">
+          <div class="level-card-header">
+            <span class="level-num neon-purple">SECTOR 01</span>
+            <span class="level-status-icon" id="status-level-1">✓</span>
+          </div>
+          <h3>System Boot</h3>
+          <p class="level-desc">Diagnostics sweep on a fresh sector. Build your first tower pad-by-pad with SYS-OP guidance.</p>
+          <div class="level-info">Difficulty: EASY | Reward: GPU / PSU Unlocks</div>
+        </div>
+        
+        <!-- Level 2 -->
+        <div class="level-card locked" id="card-level-2" data-level="2">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 02</span>
+            <span class="level-status-icon" id="status-level-2">🔒</span>
+          </div>
+          <h3>Crypto Exchange</h3>
+          <p class="level-desc">Peaceful trading sandbox. Build mining computers to mine Hashes and Chia, and trade on the market.</p>
+          <div class="level-info">Difficulty: MEDIUM | Reward: Liquid Cooler / i9 CPU / SSD Unlocks</div>
+        </div>
+        
+        <!-- Level 3 -->
+        <div class="level-card locked" id="card-level-3" data-level="3">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 03</span>
+            <span class="level-status-icon" id="status-level-3">🔒</span>
+          </div>
+          <h3>Liquid Core</h3>
+          <p class="level-desc">Fight heavy Trojan worm payloads with extreme Core i9 processors and Liquid Coolers.</p>
+          <div class="level-info">Difficulty: HARD | Reward: Power Distribution</div>
+        </div>
+        
+        <!-- Level 4 -->
+        <div class="level-card locked" id="card-level-4" data-level="4">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 04</span>
+            <span class="level-status-icon" id="status-level-4">🔒</span>
+          </div>
+          <h3>Power Distribution</h3>
+          <p class="level-desc">Resolve motherboard overloading issues on high-draw rigs by installing PSUs and managing limits.</p>
+          <div class="level-info">Difficulty: HARD | Reward: High-Performance Architecture</div>
+        </div>
+
+        <!-- Level 5 -->
+        <div class="level-card locked" id="card-level-5" data-level="5">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 05</span>
+            <span class="level-status-icon" id="status-level-5">🔒</span>
+          </div>
+          <h3>CPU Faction Architecture</h3>
+          <p class="level-desc">Learn the operational split between Intel single-target burst and AMD Ryzen multi-threaded split-ray laser cores.</p>
+          <div class="level-info">Difficulty: HARD | Reward: Enterprise Rigs Unlock</div>
+        </div>
+
+        <!-- Level 6 -->
+        <div class="level-card locked" id="card-level-6" data-level="6">
+          <div class="level-card-header">
+            <span class="level-num">SECTOR 06</span>
+            <span class="level-status-icon" id="status-level-6">🔒</span>
+          </div>
+          <h3>Enterprise Core Breach</h3>
+          <p class="level-desc">Master ATX Mega-Rigs, EE-ATX Dual-Socket boards, and AMD Ryzen multi-threading against the Ransomware.Titan Boss.</p>
+          <div class="level-info">Difficulty: EXPERT | Reward: Master Defender Unlock</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; margin-top: 25px;">
+        <button id="btn-back-menu" class="glow-btn outline-btn">BACK TO HUB</button>
+      </div>
+    </div>
+
+    <!-- Sub-Menu: Campaign Core Breach (Coming Soon) -->
+    <div id="submenu-campaign" class="overlay hidden">
+      <div class="submenu-container glass-panel">
+        <div class="submenu-header">
+          <span class="neon-purple">CAMPAIGN // CORE BREACH</span>
+          <span class="mode-badge badge-locked">COMING SOON</span>
+        </div>
+        <div class="submenu-body">
+          <p class="submenu-desc">Story-driven narrative campaign featuring curated multi-sector operations, SysOp storyline choices, custom grid events, and Boss encounters.</p>
+          <div class="coming-soon-preview">
+            <div class="preview-box">
+              <h4>EPISODE I: PROTOCOL ZERO</h4>
+              <p>Infiltrate the compromised SEC-BIOS subroutines and cleanse the rootkit payload.</p>
+            </div>
+            <div class="preview-box">
+              <h4>EPISODE II: DUAL-SOCKET BREACH</h4>
+              <p>Deploy enterprise ATX mega-rigs against multi-threaded malware swarms.</p>
+            </div>
+          </div>
+        </div>
+        <button id="btn-back-campaign" class="glow-btn outline-btn">BACK TO HUB</button>
+      </div>
+    </div>
+
+    <!-- Sub-Menu: Matrix Skirmish (Coming Soon Sandbox) -->
+    <div id="submenu-skirmish" class="overlay hidden">
+      <div class="submenu-container glass-panel">
+        <div class="submenu-header">
+          <span class="neon-orange">MATRIX SKIRMISH // SKIRMISH CONFIGURATION</span>
+          <span class="mode-badge badge-locked">COMING SOON</span>
+        </div>
+        <div class="submenu-body">
+          <p class="submenu-desc">Arcade Skirmish Mode: All hardware unlocked from Wave 1. Select difficulty and configure your custom battle grid.</p>
+          
+          <div class="skirmish-config-grid">
+            <div class="config-section">
+              <label class="config-label">DIFFICULTY TIER</label>
+              <div class="difficulty-options">
+                <button class="diff-btn active">STANDARD</button>
+                <button class="diff-btn">OVERCLOCKED</button>
+                <button class="diff-btn danger">MELTDOWN</button>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <label class="config-label">MULTIPLAYER STATUS</label>
+              <div class="mp-badge-box">
+                <span class="mp-icon">🌐</span>
+                <span>CO-OP / VERSUS LAN MATRIX [COMING SOON]</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+          <button id="btn-back-skirmish" class="glow-btn outline-btn">BACK TO HUB</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-Menu: System Settings -->
+    <div id="submenu-settings" class="overlay hidden">
+      <div class="submenu-container glass-panel">
+        <div class="submenu-header">
+          <span class="neon-cyan">SYSTEM SETTINGS // DIAGNOSTICS</span>
+        </div>
+        <div class="submenu-body">
+          <div class="settings-row">
+            <label>CRT SCANLINE FX</label>
+            <input type="checkbox" id="setting-scanlines" checked />
+          </div>
+          <div class="settings-row">
+            <label>SYS-OP DIALOGUE SOUNDS</label>
+            <input type="checkbox" id="setting-audio" checked />
+          </div>
+          <div class="settings-row" style="margin-top: 15px;">
+            <label>FORMAT SAVE DATA</label>
+            <button id="btn-reset-progress" class="glow-btn outline-btn danger-btn" style="border-color: var(--neon-red); color: var(--neon-red);">FORMAT DATA</button>
+          </div>
+        </div>
+        <button id="btn-back-settings" class="glow-btn outline-btn" style="margin-top: 25px;">BACK TO HUB</button>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over" class="overlay hidden">
+      <h2 class="alert-text">SYSTEM KERNEL BREACHED</h2>
+      <p class="subtitle">Malware files have corrupted your core BIOS partitions.</p>
+      <div id="game-stats">
+        <p>Waves Survived: <span id="stat-final-waves" class="neon-green">0</span></p>
+        <p>Total Bits Collected: <span id="stat-final-bits" class="neon-cyan">0</span></p>
+      </div>
+      <button id="btn-restart" class="glow-btn">REBOOT KERNEL</button>
+    </div>
+
+    <!-- Level Cleared Victory Screen -->
+    <div id="level-victory" class="overlay hidden">
+      <h2 class="victory-title neon-green">SECTOR DIAGNOSTIC CLEARED</h2>
+      <p class="subtitle">Diagnostics return stable states. BIOS integrity restored.</p>
+      
+      <div class="victory-unlocks">
+        <h3 class="neon-purple" style="font-family: var(--font-hud); font-size: 0.95rem; margin-bottom: 8px;">UNLOCKED HARDWARE / TECHNOLOGY:</h3>
+        <div class="unlock-items" id="victory-unlock-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      
+      <div class="victory-buttons" style="display: flex; gap: 15px; margin-top: 20px;">
+        <button id="btn-victory-continue" class="glow-btn">NEXT SECTOR</button>
+        <button id="btn-victory-select" class="glow-btn outline-btn">SECTOR SELECT</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Entrypoints -->
+  <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/levels.js"></script>
+  <script type="module" src="js/sysop.js"></script>
+  <script type="module" src="js/tutorial.js"></script>
+  <script type="module" src="js/entities.js"></script>
+  <script type="module" src="js/canvas.js"></script>
+  <script type="module" src="js/input.js"></script>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
