@@ -170,6 +170,8 @@ export class GameRenderer {
       this.ctx.stroke();
     }
 
+
+
     // Draw little PCB screw holes & corner accents
     this.ctx.fillStyle = '#121926';
     const corners = [
@@ -194,9 +196,14 @@ export class GameRenderer {
     
     // Unique non-overlapping track segments to prevent transparency stacking at crossovers
     let uniqueTraces = [];
-    if (gameState && gameState.currentLevel && gameState.currentLevel.uniqueTraces) {
-      uniqueTraces = gameState.currentLevel.uniqueTraces;
-    } else {
+    if (gameState && gameState.currentLevel) {
+      if (gameState.currentLevel.uniqueTraces) {
+        uniqueTraces = gameState.currentLevel.uniqueTraces;
+      } else if (gameState.currentLevel.paths) {
+        uniqueTraces = gameState.currentLevel.paths;
+      }
+    }
+    if (uniqueTraces.length === 0) {
       uniqueTraces = [
         // 1. Common start track
         [
@@ -786,7 +793,13 @@ export class GameRenderer {
     this.ctx.strokeStyle = '#ffffff';
     this.ctx.lineWidth = 1.5;
 
-    if (enemy.type === 'glitch') {
+    if (enemy.type === 'swarm') {
+      // Swarm: Fast pulsing micro-sphere
+      this.ctx.beginPath();
+      this.ctx.arc(ex, ey, size / 2, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.stroke();
+    } else if (enemy.type === 'glitch') {
       // Hexagonal particle
       this.ctx.beginPath();
       for (let i = 0; i < 6; i++) {
@@ -814,6 +827,33 @@ export class GameRenderer {
       this.ctx.beginPath();
       this.ctx.arc(ex, ey, size / 5, 0, Math.PI * 2);
       this.ctx.fill();
+    } else if (enemy.type === 'boss') {
+      // Boss: Massive 3-ring pulsating crimson-gold mega-structure
+      this.ctx.shadowBlur = 18;
+      this.ctx.shadowColor = '#ff0044';
+      
+      // Outer 12-point star ring
+      this.ctx.beginPath();
+      for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI / 6) * i;
+        const rad = i % 2 === 0 ? size / 2 : size / 3;
+        const tx = ex + Math.cos(angle) * rad;
+        const ty = ey + Math.sin(angle) * rad;
+        if (i === 0) this.ctx.moveTo(tx, ty);
+        else this.ctx.lineTo(tx, ty);
+      }
+      this.ctx.closePath();
+      this.ctx.fillStyle = 'rgba(255, 0, 68, 0.85)';
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#ffb700';
+      this.ctx.lineWidth = 2.5;
+      this.ctx.stroke();
+
+      // Inner glowing core
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.beginPath();
+      this.ctx.arc(ex, ey, size / 5, 0, Math.PI * 2);
+      this.ctx.fill();
     } else {
       // Trojan: Octagram / spiky ring
       this.ctx.beginPath();
@@ -832,13 +872,14 @@ export class GameRenderer {
 
     // Health Bar (Floating above enemy)
     this.ctx.shadowBlur = 0;
-    const barY = ey - size / 2 - 8;
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.fillRect(ex - 15, barY, 30, 3);
+    const barWidth = enemy.type === 'boss' ? 50 : 30;
+    const barY = ey - size / 2 - 10;
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(ex - barWidth / 2, barY, barWidth, enemy.type === 'boss' ? 5 : 3);
     
     const hpPct = enemy.hp / enemy.maxHp;
-    this.ctx.fillStyle = enemy.color;
-    this.ctx.fillRect(ex - 15, barY, 30 * hpPct, 3);
+    this.ctx.fillStyle = enemy.type === 'boss' ? '#ff0044' : enemy.color;
+    this.ctx.fillRect(ex - barWidth / 2, barY, barWidth * hpPct, enemy.type === 'boss' ? 5 : 3);
 
     this.ctx.restore();
   }
@@ -846,31 +887,27 @@ export class GameRenderer {
   drawProjectile(proj) {
     this.ctx.save();
     
-    // Draw neon glowing data packet bullet
-    this.ctx.shadowBlur = 8;
-    this.ctx.shadowColor = '#00ffcc';
+    const beamColor = proj.color || '#00ffcc';
     
-    this.ctx.fillStyle = '#00ffcc';
+    // Draw neon glowing data packet bullet
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowColor = beamColor;
+    
+    this.ctx.fillStyle = beamColor;
     this.ctx.beginPath();
     this.ctx.arc(proj.x, proj.y, proj.size, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Laser trails
-    this.ctx.strokeStyle = 'rgba(0, 255, 204, 0.3)';
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    this.ctx.moveTo(proj.x, proj.y);
-    
-    // Draw short line backward relative to vector
-    if (proj.target) {
-      const dx = proj.target.x - proj.x;
-      const dy = proj.target.y - proj.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        this.ctx.lineTo(proj.x - (dx / dist) * 15, proj.y - (dy / dist) * 15);
-      }
+    // Laser line trail connecting to target (AMD Ryzen multi-thread CPUs only!)
+    if (proj.showTrail && proj.target) {
+      this.ctx.strokeStyle = beamColor;
+      this.ctx.globalAlpha = 0.4;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(proj.x, proj.y);
+      this.ctx.lineTo(proj.target.x, proj.target.y);
+      this.ctx.stroke();
     }
-    this.ctx.stroke();
 
     this.ctx.restore();
   }

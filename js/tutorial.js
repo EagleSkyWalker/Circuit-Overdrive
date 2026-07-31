@@ -44,20 +44,32 @@ export class TutorialController {
       };
     }
 
-    // Add one-time click listener to sysop-panel to close step 0 and step 2 dialogs
+    // Clean, locked click listener for sysop-panel
     const sysopPanel = document.getElementById('sysop-panel');
     if (sysopPanel) {
-      const advanceFn = () => {
-        if ((this.levelId === 3 || this.levelId === 4) && (this.step === 0 || this.step === 2)) {
+      if (sysopPanel._sysopHandler) {
+        sysopPanel.removeEventListener('click', sysopPanel._sysopHandler);
+      }
+      sysopPanel._sysopHandler = (e) => {
+        e.stopPropagation();
+        if (this.levelId === 5 || this.levelId === 6) {
+          if (this.step === 0) {
+            this.step = 1;
+            this.refreshActiveInstruction();
+          } else {
+            this.game.sysop.hide();
+          }
+        } else if ((this.levelId === 3 || this.levelId === 4) && (this.step === 0 || this.step === 2)) {
           this.step++;
           this.refreshActiveInstruction();
         } else if (this.levelId === 2 && this.step === 0) {
           this.step = 1;
           this.refreshActiveInstruction();
+        } else {
+          this.game.sysop.hide();
         }
       };
-      sysopPanel.removeEventListener('click', advanceFn);
-      sysopPanel.addEventListener('click', advanceFn);
+      sysopPanel.addEventListener('click', sysopPanel._sysopHandler);
     }
   }
 
@@ -130,6 +142,30 @@ export class TutorialController {
           break;
         case 5:
           sysop.showMessage("Malware threads compiling! Keep an eye on system wattage, heat levels, and Kernel integrity across all 3 waves!");
+          break;
+      }
+    } else if (this.levelId === 5) {
+      switch(this.step) {
+        case 0:
+          sysop.showMessage("SYS-OP WELCOME TO SECTOR 05: CPU Faction Architecture! Today we analyze the tactical split between <span class='sysop-highlight-cpu'>Intel Core i5</span> and <span class='sysop-highlight-ryzen'>AMD Ryzen 5</span> CPUs. Heavy armor (<span class='sysop-highlight-mb'>Trojans & Worms</span>) takes <span class='sysop-highlight-cpu'>25% reduced damage</span> from Ryzen lasers, requiring Intel single-target burst! Conversely, <span class='sysop-highlight-ryzen'>DDoS Swarms</span> resist single-target Intel lasers (requiring 2 shots per swarm), but melt under AMD multi-threaded split-rays! Click this panel to continue!");
+          break;
+        case 1:
+          sysop.showMessage("Wave 1 is a fast <span class='sysop-highlight-ryzen'>DDoS Swarm</span>! Deploy an <span class='sysop-highlight-ryzen'>AMD Ryzen 5</span> CPU to split laser beams and vaporize the swarm!");
+          break;
+        case 2:
+          sysop.showMessage("Wave 1 cleared! Wave 2 introduces heavy <span class='sysop-highlight-mb'>Trojans & Worms</span>! Ryzen lasers suffer 25% damage reduction against heavy armor. Build <span class='sysop-highlight-cpu'>Intel Core i5</span> CPUs for 100% unmitigated burst!");
+          break;
+        case 3:
+          sysop.showMessage("Wave 3 is a combined assault! Balance your grid with both Intel i5 for heavy armor and AMD Ryzen 5 for swarms. Click INITIALIZE PROTOCOL when ready!");
+          break;
+      }
+    } else if (this.levelId === 6) {
+      switch(this.step) {
+        case 0:
+          sysop.showMessage("SYS-OP WELCOME TO SECTOR 06: Enterprise Core Breach! You have unlocked all high-tier enterprise hardware—including <span class='sysop-highlight-case'>ATX Cases</span>, <span class='sysop-highlight-mb'>ATX & EE-ATX Dual-Socket Boards</span>, <span class='sysop-highlight-cpu'>Core i9 Extreme</span>, and <span class='sysop-highlight-ryzen'>Ryzen 9 CPUs</span>! Prepare for the ultimate <span class='sysop-highlight-cpu'>Ransomware.Titan Boss</span> in Wave 4! Click this panel to continue!");
+          break;
+        case 1:
+          sysop.showMessage("High-performance enterprise hardware ready! Build ATX and EE-ATX Mega-Rigs across the twisty dual-lane grid to hold off the swarm surges and the Titan Boss!");
           break;
       }
     } else {
@@ -257,6 +293,8 @@ export class TutorialController {
         return false;
       }
       return false;
+    } else if (this.levelId === 5 || this.levelId === 6) {
+      return true; // Full sandbox freedom in Sector 5 & Sector 6!
     }
 
     if (this.step !== 0) {
@@ -280,6 +318,9 @@ export class TutorialController {
 
   // Intercept mode toggling
   canToggleMode() {
+    if (this.levelId === 5 || this.levelId === 6) {
+      return true; // Allow switching modes freely in Sector 5 & 6!
+    }
     const goingToBuild = (this.game.uiMode === 'BUY');
 
     if (this.levelId === 2) {
@@ -377,6 +418,8 @@ export class TutorialController {
         return false;
       }
       return true;
+    } else if (this.levelId === 5 || this.levelId === 6) {
+      return true; // Full sandbox freedom in Sector 5 & Sector 6!
     }
 
     if (this.step < 2) {
@@ -398,8 +441,8 @@ export class TutorialController {
     if (this.levelId === 2 && this.step === 5) {
       return true; // Lifting all constraints in the sandbox phase
     }
-    if ((this.levelId === 3 && (this.step === 5 || this.step === 6)) || (this.levelId === 4 && this.step >= 4)) {
-      return true; // Lifting all constraints in the sandbox/combat phase
+    if ((this.levelId === 3 && (this.step === 5 || this.step === 6)) || (this.levelId === 4 && this.step >= 4) || (this.levelId === 5) || (this.levelId === 6)) {
+      return true; // Lifting all constraints in Sector 5 and Sector 6!
     }
 
     const tower = this.game.towers.find(t => t.gridX === col && t.gridY === row);
@@ -599,6 +642,34 @@ export class TutorialController {
       else if (actionType === 'waveComplete') {
         if (data === 2) {
           this.game.sysop.showMessage("SYS-OP WARNING! CRITICAL INTRUSION IMMINENT! Wave 3 contains a massive Trojan payload assault! Ensure you have built high-powered rigs to hold the dual lanes!");
+        }
+      }
+      return;
+    } else if (this.levelId === 5) {
+      if (actionType === 'startWave') {
+        this.game.sysop.hide();
+      }
+      else if (actionType === 'waveComplete') {
+        if (data === 1) {
+          this.step = 2;
+          this.game.sysop.showMessage("Wave 1 cleared! Heavy Trojans & Worms incoming in Wave 2! Remember: Heavy armor takes 25% reduced damage from Ryzen CPUs. Build Intel i5 CPUs for full burst damage!");
+        } else if (data === 2) {
+          this.step = 3;
+          this.game.sysop.showMessage("Wave 2 cleared! Combined Assault incoming in Wave 3 (DDoS Swarms + Heavy Trojans)! Deploy both Intel i5 and AMD Ryzen 5 CPUs across the winding track!");
+        }
+      }
+      return;
+    } else if (this.levelId === 6) {
+      if (actionType === 'startWave') {
+        this.game.sysop.hide();
+      }
+      else if (actionType === 'waveComplete') {
+        if (data === 1) {
+          this.game.sysop.showMessage("Wave 1 cleared! Heavy Rogue Processes incoming in Wave 2! Make sure you have single-target Intel burst towers (i5/i9) ready for high-HP Trojans!");
+        } else if (data === 2) {
+          this.game.sysop.showMessage("Wave 2 cleared! Combined Assault incoming in Wave 3 (DDoS Swarms + Heavy Trojans)! Balance your grid with both Intel single-target and AMD multi-thread rigs!");
+        } else if (data === 3) {
+          this.game.sysop.showMessage("SYS-OP CRITICAL ALERT! Wave 4: Ransomware.Titan Boss Assault imminent! Prepare your EE-ATX Mega-Rigs across the grid!");
         }
       }
       return;

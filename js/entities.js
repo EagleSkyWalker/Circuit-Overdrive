@@ -45,14 +45,14 @@ export class Motherboard {
     if (type === 'ssd') {
       return this.installed.ssd.length < this.getMaxM2Slots();
     }
-    const category = (type === 'cpu-extreme') ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
+    const category = (type.startsWith('cpu')) ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
     const maxSlots = this.stats.slots[category] || 0;
     return this.installed[category].length < maxSlots;
   }
 
   install(component) {
     if (this.hasSlotAvailable(component.type)) {
-      const category = (component.type === 'cpu-extreme') ? 'cpu' : (component.type === 'pcie-m2' ? 'gpu' : component.type);
+      const category = (component.type.startsWith('cpu')) ? 'cpu' : (component.type === 'pcie-m2' ? 'gpu' : component.type);
       this.installed[category].push(component);
       return true;
     }
@@ -60,7 +60,7 @@ export class Motherboard {
   }
 
   remove(type, id) {
-    const category = (type === 'cpu-extreme') ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
+    const category = (type.startsWith('cpu')) ? 'cpu' : (type === 'pcie-m2' ? 'gpu' : type);
     const list = this.installed[category];
     const index = list.findIndex(c => c.id === id);
     if (index !== -1) {
@@ -127,6 +127,7 @@ export class PcTower {
 
   installMotherboard(mbType) {
     if (!this.hasCase || this.motherboard || this.status === 'broken') return false;
+    if ((mbType === 'atx' || mbType === 'ee-atx') && this.caseType === 'basic') return false;
     this.motherboard = new Motherboard(mbType);
     this.recalculateStats();
     return true;
@@ -144,7 +145,7 @@ export class PcTower {
 
   removeComponent(partType, id) {
     if (!this.motherboard || this.status === 'broken') return null;
-    const category = partType === 'cpu-extreme' ? 'cpu' : partType;
+    const category = partType.startsWith('cpu') ? 'cpu' : partType;
     const removed = this.motherboard.remove(category, id);
     if (removed) {
       this.recalculateStats();
@@ -188,23 +189,51 @@ export class PcTower {
     const activeCooling = coolingList.reduce((acc, c) => acc + c.stats.coolingRate, 0);
     this.coolingRate = this.stats.airflow + activeCooling;
 
-    // CPU (Damage)
+    // CPU (Damage, Target count, Mix & Match)
     const cpuList = mb.installed.cpu;
     this.damage = cpuList.reduce((acc, c) => acc + c.stats.damage, 0);
+    this.isMixedCpu = false;
+
+    if (cpuList.length > 0) {
+      this.maxTargets = Math.max(...cpuList.map(c => c.stats.maxTargets || 1));
+      const hasRyzen = cpuList.some(c => c.type === 'cpu-ryzen5' || c.type === 'cpu-ryzen9');
+      this.showTrail = hasRyzen;
+      this.cpuColor = hasRyzen ? '#ff6600' : cpuList[0].stats.color;
+
+      if (cpuList.length >= 2) {
+        const is0Intel = (cpuList[0].type === 'cpu' || cpuList[0].type === 'cpu-extreme');
+        const is1Intel = (cpuList[1].type === 'cpu' || cpuList[1].type === 'cpu-extreme');
+        if (is0Intel !== is1Intel) {
+          this.isMixedCpu = true;
+        }
+      }
+    } else {
+      this.maxTargets = 1;
+      this.cpuColor = '#00ffcc';
+      this.showTrail = false;
+    }
 
     // RAM (Fire speed)
     const ramList = mb.installed.ram;
     const ramBonus = ramList.reduce((acc, r) => acc + r.stats.speedFactor, 0);
     this.fireCooldown = 1200 / (1 + ramBonus);
+    if (this.isMixedCpu) {
+      this.fireCooldown *= 1.20; // 20% fire rate penalty for mixed Intel/AMD
+    }
 
     // Range (motherboards determine base, wifi increases it)
-    this.range = (mb.type === 'atx' ? 300 : 220); // increased from 180/130 to 300/220
+    if (mb.type === 'ee-atx') {
+      this.range = 380; // 4.75 Tiles
+    } else if (mb.type === 'atx') {
+      this.range = 300; // 3.75 Tiles
+    } else {
+      this.range = 220; // 2.75 Tiles
+    }
     if (mb.wifiAntenna) this.range += 50;
 
-    // Calculate total wattage draw of all components
-    let totalDraw = 0;
+    // Calculate total wattage draw of all components + EE-ATX 40W baseline
+    let totalDraw = (mb.stats.basePowerDraw || 0);
     Object.keys(mb.installed).forEach(type => {
-      // PSU doesn't draw power from itself
       if (type === 'psu') return;
       mb.installed[type].forEach(comp => {
         totalDraw += comp.stats.wattage || 0;
@@ -342,18 +371,25 @@ export class PcTower {
     }
 
     if (this.cooldownTimer <= 0) {
-      // Find targets in range
-      const target = this.findTarget(enemies);
-      if (target) {
-        // Shoot!
-        spawnProjectileCallback(this.x, this.y, target, this.damage);
+      // Find up to maxTargets in range
+      const maxCount = this.maxTargets || 1;
+      const targets = this.findTargets(enemies, maxCount);
+      if (targets.length > 0) {
+        // Shoot all targeted enemies simultaneously!
+        targets.forEach(target => {
+          spawnProjectileCallback(this.x, this.y, target, this.damage, this.cpuColor, this.showTrail, this.showTrail);
+        });
         this.cooldownTimer = this.fireCooldown;
         
         // Firing CPU generates immediate heat spike (disabled in Sector 1 & 2)
         const isLvl1Or2 = window.Game && window.Game.currentLevel && (window.Game.currentLevel.id === 1 || window.Game.currentLevel.id === 2);
         if (!isLvl1Or2) {
           let fireHeat = 0;
-          this.motherboard.installed.cpu.forEach(c => { fireHeat += c.stats.heat; });
+          const isEEATX = (this.motherboard && this.motherboard.type === 'ee-atx');
+          let heatMult = isEEATX ? 1.25 : 1.0; // Thermal Fusion (+25%)
+          if (this.isMixedCpu) heatMult += 0.10; // +10% mix & match heat penalty
+
+          this.motherboard.installed.cpu.forEach(c => { fireHeat += c.stats.heat * heatMult; });
           this.motherboard.installed.ram.forEach(r => { fireHeat += r.stats.heat; });
           this.heat += fireHeat;
         }
@@ -362,27 +398,20 @@ export class PcTower {
   }
 
   findTarget(enemies) {
-    let bestTarget = null;
-    let maxDistTraveled = -1;
+    const targets = this.findTargets(enemies, 1);
+    return targets.length > 0 ? targets[0] : null;
+  }
 
-    for (const enemy of enemies) {
-      if (enemy.hp <= 0 || enemy.finished) continue;
-      
+  findTargets(enemies, maxCount = 1) {
+    const valid = enemies.filter(enemy => {
+      if (enemy.hp <= 0 || enemy.finished) return false;
       const dx = enemy.x - this.x;
       const dy = enemy.y - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist <= this.range) {
-        // Target the enemy furthest along their path
-        if (enemy.distTraveled > maxDistTraveled) {
-          maxDistTraveled = enemy.distTraveled;
-          bestTarget = enemy;
-        } else if (enemy.distTraveled === maxDistTraveled && Math.random() < 0.5) {
-          bestTarget = enemy; // tie-breaker
-        }
-      }
-    }
-    return bestTarget;
+      return (dx * dx + dy * dy) <= (this.range * this.range);
+    });
+
+    valid.sort((a, b) => b.distTraveled - a.distTraveled);
+    return valid.slice(0, maxCount);
   }
 }
 
@@ -398,6 +427,7 @@ export class MalwareEnemy {
     const isLvl1 = window.Game && window.Game.currentLevel && window.Game.currentLevel.id === 1;
     this.hp = isLvl1 ? 20 : this.stats.hp;
     this.maxHp = this.hp;
+    this.lastShedHp = this.maxHp;
     this.speed = this.stats.speed;
     this.reward = this.stats.reward;
     this.color = this.stats.color;
@@ -423,8 +453,24 @@ export class MalwareEnemy {
   }
 
   takeDamage(amount) {
+    const prevHp = this.hp;
     this.hp -= amount;
     if (this.hp < 0) this.hp = 0;
+
+    // Boss Swarm Mitosis shedding
+    if (this.type === 'boss' && this.hp > 0) {
+      const shedThreshold = this.stats.shedThreshold || 50;
+      const hpLost = this.lastShedHp - this.hp;
+      if (hpLost >= shedThreshold) {
+        const count = Math.floor(hpLost / shedThreshold);
+        this.lastShedHp -= count * shedThreshold;
+        if (window.Game && window.Game.spawnShedEnemy) {
+          for (let i = 0; i < count; i++) {
+            window.Game.spawnShedEnemy('swarm', this.x, this.y, this.path, this.currentWaypointIndex, this.distTraveled);
+          }
+        }
+      }
+    }
   }
 
   update(dt) {
@@ -476,11 +522,14 @@ export class MalwareEnemy {
 
 // Projectile entity (glowing laser or packet bullet)
 export class LaserProjectile {
-  constructor(startX, startY, target, damage) {
+  constructor(startX, startY, target, damage, color, showTrail = false, isRyzen = false) {
     this.x = startX;
     this.y = startY;
     this.target = target;
     this.damage = damage;
+    this.color = color || '#00ffcc';
+    this.showTrail = showTrail;
+    this.isRyzen = isRyzen || showTrail;
     
     this.speed = 450; // pixels per second
     this.size = 5;
@@ -503,8 +552,21 @@ export class LaserProjectile {
 
     const step = this.speed * (dt / 1000);
     if (dist <= step) {
-      // Hit!
-      this.target.takeDamage(this.damage);
+      // Hit! Apply damage reduction rules
+      let finalDamage = this.damage;
+      const targetType = this.target.type;
+
+      // Heavy armor (Worm & Trojan) takes 25% reduced damage from AMD Ryzen CPUs
+      if ((targetType === 'worm' || targetType === 'trojan') && this.isRyzen) {
+        finalDamage *= 0.75;
+      }
+
+      // DDoS Swarms take reduced damage from Intel CPUs (requiring 2 shots to kill from i5)
+      if (targetType === 'swarm' && !this.isRyzen) {
+        finalDamage = Math.min(finalDamage, 8.0); // 8 HP per shot against 15 HP Swarm = 2 shots!
+      }
+
+      this.target.takeDamage(finalDamage);
       this.shouldRemove = true;
     } else {
       this.x += (dx / dist) * step;

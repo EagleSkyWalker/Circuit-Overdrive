@@ -172,6 +172,164 @@ export const LEVELS = {
       tower.heat = 45.0;
       game.towers.push(tower);
     }
+  },
+  5: {
+    id: 5,
+    name: "Sector 5: CPU Faction Architecture",
+    desc: "Learn the operational split between Intel single-target burst and AMD Ryzen multi-threaded split-ray laser cores.",
+    startingBits: 400,
+    waves: 3,
+    unlockedParts: ['socket', 'case-basic', 'mb-mini', 'cpu', 'cpu-ryzen5', 'ram', 'psu', 'cooler', 'repair'],
+    isTutorial: true,
+    paths: [
+      [
+        { x: 0, y: 1 },
+        { x: 13, y: 1 },
+        { x: 13, y: 3 },
+        { x: 2, y: 3 },
+        { x: 2, y: 5 },
+        { x: 13, y: 5 },
+        { x: 13, y: 7 },
+        { x: 15, y: 7 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    uniqueTraces: [
+      [
+        { x: 0, y: 1 },
+        { x: 13, y: 1 },
+        { x: 13, y: 3 },
+        { x: 2, y: 3 },
+        { x: 2, y: 5 },
+        { x: 13, y: 5 },
+        { x: 13, y: 7 },
+        { x: 15, y: 7 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    waveSetup: (waveNum) => {
+      const queue = [];
+      if (waveNum === 1) {
+        // Wave 1: DDoS Swarm introduction (15 swarms)
+        for (let i = 0; i < 15; i++) queue.push('swarm');
+        return queue;
+      } else if (waveNum === 2) {
+        // Wave 2: Heavy armor push (4 Trojans + 4 Worms)
+        for (let i = 0; i < 4; i++) queue.push('worm');
+        for (let i = 0; i < 4; i++) queue.push('trojan');
+        return queue.sort(() => Math.random() - 0.5);
+      } else {
+        // Wave 3: Combined Assault (19 Swarms + 4 Worms + 3 Trojans)
+        for (let i = 0; i < 19; i++) queue.push('swarm');
+        for (let i = 0; i < 4; i++) queue.push('worm');
+        for (let i = 0; i < 3; i++) queue.push('trojan');
+        return queue.sort(() => Math.random() - 0.5);
+      }
+    }
+  },
+  6: {
+    id: 6,
+    name: "Sector 6: Enterprise Core Breach",
+    desc: "Master ATX Mega-Rigs, EE-ATX Dual-Socket boards, and AMD Ryzen multi-threading against the Ransomware.Titan Boss.",
+    startingBits: 500,
+    waves: 4,
+    unlockedParts: ['socket', 'case-basic', 'case-gaming', 'mb-mini', 'mb-atx', 'mb-eeatx', 'cpu', 'cpu-extreme', 'cpu-ryzen5', 'cpu-ryzen9', 'ram', 'psu', 'cooler', 'repair', 'gpu', 'ssd', 'pcie-m2'],
+    isTutorial: true,
+    paths: [
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 },
+        { x: 2, y: 1 },
+        { x: 6, y: 1 },
+        { x: 6, y: 3 },
+        { x: 10, y: 3 },
+        { x: 10, y: 1 },
+        { x: 13, y: 1 },
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ],
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 },
+        { x: 2, y: 7 },
+        { x: 6, y: 7 },
+        { x: 6, y: 5 },
+        { x: 10, y: 5 },
+        { x: 10, y: 7 },
+        { x: 13, y: 7 },
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    uniqueTraces: [
+      [
+        { x: 0, y: 4 },
+        { x: 2, y: 4 }
+      ],
+      [
+        { x: 2, y: 4 },
+        { x: 2, y: 1 },
+        { x: 6, y: 1 },
+        { x: 6, y: 3 },
+        { x: 10, y: 3 },
+        { x: 10, y: 1 },
+        { x: 13, y: 1 },
+        { x: 13, y: 4 }
+      ],
+      [
+        { x: 2, y: 4 },
+        { x: 2, y: 7 },
+        { x: 6, y: 7 },
+        { x: 6, y: 5 },
+        { x: 10, y: 5 },
+        { x: 10, y: 7 },
+        { x: 13, y: 7 },
+        { x: 13, y: 4 }
+      ],
+      [
+        { x: 13, y: 4 },
+        { x: 15, y: 4 }
+      ]
+    ],
+    waveSetup: (waveNum) => {
+      const queue = [];
+      if (waveNum === 1) {
+        // Wave 1: DDoS Swarm introduction (10 swarms + 4 glitches)
+        for (let i = 0; i < 10; i++) queue.push('swarm');
+        for (let i = 0; i < 4; i++) queue.push('glitch');
+        return queue.sort(() => Math.random() - 0.5);
+      } else if (waveNum === 2) {
+        // Wave 2: Heavy Rogue processes (Single-target Intel burst required)
+        for (let i = 0; i < 4; i++) queue.push('worm');
+        for (let i = 0; i < 3; i++) queue.push('trojan');
+        return queue.sort(() => Math.random() - 0.5);
+      } else if (waveNum === 3) {
+        // Wave 3: Combined Assault (27 Swarms + 6 Worms + 3 Trojans)
+        for (let i = 0; i < 27; i++) queue.push('swarm');
+        for (let i = 0; i < 6; i++) queue.push('worm');
+        for (let i = 0; i < 3; i++) queue.push('trojan');
+        return queue.sort(() => Math.random() - 0.5);
+      } else {
+        // Wave 4: Core Breach Ultra-Assault!
+        // Step 1: Initial rapid burst of 45 DDoS Swarms + 8 Glitches (~4 sec)
+        for (let i = 0; i < 45; i++) queue.push('swarm');
+        for (let i = 0; i < 8; i++) queue.push('glitch');
+
+        // Step 2: Doubled Heavy Armor Push + Constant Glitch Stream (12 Worms + 8 Trojans + 8 Glitches)
+        for (let i = 0; i < 12; i++) queue.push('worm');
+        for (let i = 0; i < 8; i++) queue.push('trojan');
+        for (let i = 0; i < 8; i++) queue.push('glitch');
+
+        // Step 3: Dramatic 1.8s pause marker before final surge
+        queue.push('pause');
+
+        // Step 4: Massive Surprise Tsunami: 80 DDoS Swarms + 8 Constant Glitches + Ransomware.Titan BOSS!
+        for (let i = 0; i < 80; i++) queue.push('swarm');
+        for (let i = 0; i < 8; i++) queue.push('glitch');
+        queue.push('boss'); // Climax encounter!
+        return queue; // Preserving sequence for scripted ambush!
+      }
+    }
   }
 };
 

@@ -60,7 +60,7 @@ export const CONFIG = {
       glowColor: "rgba(100, 100, 100, 0.3)"
     },
     gaming: {
-      name: "ATX Server Tower",
+      name: "ATX Case",
       cost: 80,
       maxHp: 250,
       maxMbSize: "atx",
@@ -88,12 +88,28 @@ export const CONFIG = {
     "atx": {
       name: "Full ATX Board",
       cost: 100,
+      basePowerDraw: 0,
+      range: 300,
       slots: {
         cpu: 1,
         ram: 4,
         gpu: 3,
         psu: 2,
         cooler: 2,
+        m2: 2
+      }
+    },
+    "ee-atx": {
+      name: "EE-ATX Dual-Socket Board",
+      cost: 180,
+      basePowerDraw: 40, // 40W baseline power draw
+      range: 380, // 4.75 Tiles (380px)
+      slots: {
+        cpu: 2,
+        ram: 6,
+        gpu: 4,
+        psu: 2,
+        cooler: 3,
         m2: 2
       }
     }
@@ -107,7 +123,8 @@ export const CONFIG = {
       damage: 40,  // increased from 25 to 40
       wattage: 20, // wattage draw
       heat: 6,     // heat generated per shot (reduced from 12)
-      color: "#ff0055"
+      color: "#ff0055",
+      maxTargets: 1
     },
     'cpu-extreme': {
       name: "Core i9 Extreme",
@@ -115,7 +132,26 @@ export const CONFIG = {
       damage: 100,
       wattage: 40,
       heat: 14,
-      color: "#ff00a0"
+      color: "#ff00a0",
+      maxTargets: 1
+    },
+    'cpu-ryzen5': {
+      name: "Ryzen 5 Processor",
+      cost: 35,
+      damage: 15,
+      wattage: 15,
+      heat: 6,
+      color: "#ff6600",
+      maxTargets: 3
+    },
+    'cpu-ryzen9': {
+      name: "Ryzen 9 3D-Cache",
+      cost: 70,
+      damage: 35,
+      wattage: 30,
+      heat: 10,
+      color: "#ff9900",
+      maxTargets: 5
     },
     ram: {
       name: "DDR5 Memory Stick",
@@ -131,8 +167,8 @@ export const CONFIG = {
       cryptoRate: 1.0, // generating 1 Qubit per second actively
       range: 120, // range to collect bonus Bits from defeated enemies
       rangeBonusRate: 10, // bonus Bits awarded on nearby malware kills
-      wattage: 40,
-      heat: 18,
+      wattage: 15,
+      heat: 5,
       color: "#ffb700"
     },
     psu: {
@@ -172,6 +208,15 @@ export const CONFIG = {
   
   // Types of Malware (Enemies)
   MALWARE: {
+    swarm: {
+      name: "DDoS.Swarm",
+      hp: 15,
+      speed: 3.2,
+      reward: 2,
+      color: "#00e5ff",
+      size: 8,
+      attackPower: 5
+    },
     glitch: {
       name: "Glitch.exe",
       hp: 60, // reduced from 80
@@ -198,6 +243,16 @@ export const CONFIG = {
       color: "#ffb700",
       size: 24,
       attackPower: 35
+    },
+    boss: {
+      name: "Ransomware.Titan",
+      hp: 1750, // increased by +250 HP from 1500
+      speed: 0.5,
+      reward: 150,
+      color: "#ff0044",
+      size: 42,
+      attackPower: 50,
+      shedThreshold: 50 // Sheds 1 swarm unit every 50 HP lost
     }
   }
 };

@@ -5,6 +5,7 @@ import InputHandler from './input.js';
 import LevelManager from './levels.js';
 import SYSOPHandler from './sysop.js';
 import TutorialController from './tutorial.js';
+import { GlitchParticleSystem } from './glitchFx.js';
 
 class GameController {
   constructor() {
@@ -42,53 +43,49 @@ class GameController {
     this.prevChiaPrice = 0.8;
     this.marketTimer = 0;
     
-    this.towers = [];
-    this.enemies = [];
-    this.projectiles = [];
-    this.floatingTexts = [];
-    this.gpuMiningTimer = 0;
-    this.notifTimeout = null;
-    this.waveRestTimer = 0;
-    
-    this.waveNumber = 0;
-    this.waveActive = false;
-    
-    this.selectedTower = null;
-    this.lastSelectedTowerStatus = null;
-    this.hardwareExpanded = false; // default collapsed
-    this.hoverCell = null;
-    this.activeBuildCell = null;
-    
-    // Hotbar UI mode state
-    this.uiMode = 'BUY'; // 'BUY' or 'BUILD'
-    this.selectedBuildItem = null; // selected hotbar slot name to build
+    // Hotbar selection
+    this.selectedBuildItem = null;
+    this.uiMode = 'BUY';
     this.inventory = {
       socket: 0,
       'case-basic': 0,
       'case-gaming': 0,
       'mb-mini': 0,
       'mb-atx': 0,
+      'mb-eeatx': 0,
       cpu: 0,
       'cpu-extreme': 0,
+      'cpu-ryzen5': 0,
+      'cpu-ryzen9': 0,
       ram: 0,
-      gpu: 0,
       psu: 0,
       cooler: 0,
       repair: 0,
+      gpu: 0,
       ssd: 0,
       'pcie-m2': 0
     };
-
-    // Wave spawn tracking
+    
+    this.selectedTower = null;
+    this.lastSelectedTowerStatus = null;
+    this.hardwareExpanded = false;
+    this.hoverCell = null;
+    
+    this.towers = [];
+    this.enemies = [];
+    this.projectiles = [];
+    this.floatingTexts = [];
     this.spawnQueue = [];
     this.spawnTimer = 0;
-    this.spawnInterval = 800; // ms between spawns
-    
-    // Loop timing
-    this.lastTime = 0;
+    this.waveNumber = 0;
+    this.waveActive = false;
     this.gameActive = false;
-    
-    // Bind UI elements
+    this.waveRestTimer = 0;
+    this.notifTimeout = null;
+
+    // Initialize Glitch Background Canvas for Main Menu
+    this.glitchSystem = new GlitchParticleSystem('glitch-canvas');
+
     this.setupUI();
     
     // Initial resize to fit screen
@@ -101,21 +98,70 @@ class GameController {
   }
 
   setupUI() {
-    // Menu buttons
-    document.getElementById('btn-start').addEventListener('click', () => this.showLevelSelect());
+    // Title Splash Screen (STATE_TITLE) click & keypress transition to mode hub
+    const splashEl = document.getElementById('title-splash');
+    if (splashEl) {
+      const bootSystem = () => {
+        splashEl.classList.add('hidden');
+        this.showMainMenu();
+      };
+      splashEl.addEventListener('click', bootSystem);
+      window.addEventListener('keydown', (e) => {
+        if (!splashEl.classList.contains('hidden')) {
+          bootSystem();
+        }
+      });
+    }
+
+    // Mode Selection Hub buttons
+    const btnBoot = document.getElementById('btn-mode-boot');
+    if (btnBoot) btnBoot.addEventListener('click', () => this.showLevelSelect());
+
+    const btnCampaign = document.getElementById('btn-mode-campaign');
+    if (btnCampaign) btnCampaign.addEventListener('click', () => this.showSubMenu('submenu-campaign'));
+
+    const btnSkirmish = document.getElementById('btn-mode-skirmish');
+    if (btnSkirmish) btnSkirmish.addEventListener('click', () => this.showSubMenu('submenu-skirmish'));
+
+    const btnSettings = document.getElementById('btn-mode-settings');
+    if (btnSettings) btnSettings.addEventListener('click', () => this.showSubMenu('submenu-settings'));
+
+    // Back to Hub Buttons
     document.getElementById('btn-back-menu').addEventListener('click', () => this.showMainMenu());
+    const btnBackCamp = document.getElementById('btn-back-campaign');
+    if (btnBackCamp) btnBackCamp.addEventListener('click', () => this.showMainMenu());
+
+    const btnBackSkir = document.getElementById('btn-back-skirmish');
+    if (btnBackSkir) btnBackSkir.addEventListener('click', () => this.showMainMenu());
+
+    const btnBackSet = document.getElementById('btn-back-settings');
+    if (btnBackSet) btnBackSet.addEventListener('click', () => this.showMainMenu());
+
+    // Difficulty Pill Toggles in Skirmish Sub-Menu
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+      });
+    });
+
     document.getElementById('btn-reset-progress').addEventListener('click', () => {
       if (confirm("Are you sure you want to format BIOS partition records? This will delete all completed Sector history and re-lock advanced Sectors!")) {
         localStorage.removeItem('circuit_overdrive_unlocked_level');
         this.levelManager.unlockedLevel = 1;
         this.updateLevelSelectUI();
+        alert("BIOS partition records formatted successfully.");
       }
     });
+
     document.getElementById('btn-restart').addEventListener('click', () => this.restartGame());
     document.getElementById('btn-next-wave').addEventListener('click', () => this.startNextWave());
-    document.getElementById('btn-zoom-in')?.addEventListener('click', () => this.renderer.camera.zoomIn());
-    document.getElementById('btn-zoom-out')?.addEventListener('click', () => this.renderer.camera.zoomOut());
-    document.getElementById('btn-reset-cam')?.addEventListener('click', () => this.renderer.camera.resetView());
+    const zIn = document.getElementById('btn-zoom-in');
+    if (zIn) zIn.addEventListener('click', () => this.renderer.camera.zoomIn());
+    const zOut = document.getElementById('btn-zoom-out');
+    if (zOut) zOut.addEventListener('click', () => this.renderer.camera.zoomOut());
+    const zReset = document.getElementById('btn-reset-cam');
+    if (zReset) zReset.addEventListener('click', () => this.renderer.camera.resetView());
     document.getElementById('btn-close-monitor').addEventListener('click', () => this.deselectTower());
     document.getElementById('btn-toggle-hardware').addEventListener('click', () => this.toggleHardwareExpanded());
     document.getElementById('btn-sell-hashes').addEventListener('click', () => this.sellHashes());
@@ -163,27 +209,36 @@ class GameController {
     this.renderer.resize(w, h);
   }
 
+  hideSubMenus() {
+    ['title-splash', 'level-select', 'submenu-campaign', 'submenu-skirmish', 'submenu-settings', 'level-victory', 'game-over', 'market-panel', 'objectives-panel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  }
+
+  showSubMenu(menuId) {
+    document.getElementById('main-menu').classList.add('hidden');
+    this.hideSubMenus();
+    const el = document.getElementById(menuId);
+    if (el) el.classList.remove('hidden');
+  }
+
   showLevelSelect() {
     document.getElementById('main-menu').classList.add('hidden');
+    this.hideSubMenus();
     document.getElementById('level-select').classList.remove('hidden');
-    document.getElementById('level-victory').classList.add('hidden');
-    document.getElementById('game-over').classList.add('hidden');
-    document.getElementById('market-panel').classList.add('hidden');
-    document.getElementById('objectives-panel').classList.add('hidden');
     this.updateLevelSelectUI();
   }
 
   showMainMenu() {
+    this.hideSubMenus();
     document.getElementById('main-menu').classList.remove('hidden');
-    document.getElementById('level-select').classList.add('hidden');
-    document.getElementById('market-panel').classList.add('hidden');
-    document.getElementById('objectives-panel').classList.add('hidden');
   }
 
   updateLevelSelectUI() {
     this.levelManager.loadProgress(); // reload progress
     
-    for (let id = 1; id <= 4; id++) {
+    for (let id = 1; id <= 6; id++) {
       const card = document.querySelector(`.level-card[data-level="${id}"]`);
       if (!card) continue;
       
@@ -205,8 +260,7 @@ class GameController {
 
   startLevel(levelId) {
     document.getElementById('main-menu').classList.add('hidden');
-    document.getElementById('level-select').classList.add('hidden');
-    document.getElementById('level-victory').classList.add('hidden');
+    this.hideSubMenus();
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('bottom-bar').classList.remove('hidden');
     
@@ -333,7 +387,11 @@ class GameController {
     } else if (this.levelManager.currentLevelId === 2) {
       unlocks = ["DDR5 RAM", "LIQUID AIO COOLER", "REPAIR KIT", "SECTOR 03: LIQUID CORE"];
     } else if (this.levelManager.currentLevelId === 3) {
-      unlocks = ["CORE I9 EXTREME CPU", "ATX MOTHERBOARD", "GAMING ATX CASE", "80+ PLATINUM PSU", "SECTOR 04: ENDLESS COMPILER"];
+      unlocks = ["CORE I9 EXTREME CPU", "ATX MOTHERBOARD", "ATX CASE", "80+ PLATINUM PSU", "SECTOR 04: POWER DISTRIBUTION"];
+    } else if (this.levelManager.currentLevelId === 4) {
+      unlocks = ["RYZEN 5 PROCESSOR", "RYZEN 9 3D-CACHE", "SECTOR 05: HIGH-PERFORMANCE ARCHITECTURE"];
+    } else if (this.levelManager.currentLevelId === 5) {
+      unlocks = ["MASTER SYSTEM DEFENDER UNLOCKED", "ALL ARCHITECTURES MASTERED"];
     }
     
     unlocks.forEach(item => {
@@ -347,7 +405,7 @@ class GameController {
   continueToNextLevel() {
     document.getElementById('level-victory').classList.add('hidden');
     const nextLevelId = this.levelManager.currentLevelId + 1;
-    if (nextLevelId <= 4) {
+    if (nextLevelId <= 5) {
       this.startLevel(nextLevelId);
     } else {
       this.showLevelSelect();
@@ -366,51 +424,60 @@ class GameController {
     let desc = "";
     switch(slotName) {
       case 'socket':
-        desc = "GRID ANCHOR: Base motherboard pad connector. Required to place cases. Cost: 20QB.";
+        desc = "<span style='color: #00aaff; font-weight: 800; text-shadow: 0 0 8px rgba(0, 170, 255, 0.6);'>GRID ANCHOR:</span> Base motherboard pad connector. Required to place cases. Cost: 20QB.";
         break;
       case 'case-basic':
-        desc = "CASE (ITX): Basic case. HP: 100, Passive Airflow: 8°C/s. Support: Mini-ITX motherboard. Cost: 40QB.";
+        desc = "<span style='color: #8899a6; font-weight: 800; text-shadow: 0 0 8px rgba(136, 153, 166, 0.6);'>CASE (ITX):</span> Basic case. HP: 100, Passive Airflow: 8°C/s. Support: Mini-ITX motherboard. Cost: 40QB.";
         break;
       case 'case-gaming':
-        desc = "CASE (ATX): Server ATX case. HP: 250, Passive Airflow: 18°C/s. Support: Full ATX motherboard. Cost: 80QB.";
+        desc = "<span style='color: #8899a6; font-weight: 800; text-shadow: 0 0 8px rgba(136, 153, 166, 0.6);'>CASE (ATX):</span> Server ATX case. HP: 250, Passive Airflow: 18°C/s. Support: Full ATX motherboard. Cost: 80QB.";
         break;
       case 'mb-mini':
-        desc = "MB (ITX): ITX Motherboard. Range: 2.75 Tiles. Slots: 1 CPU, 2 RAM, 1 GPU, 1 PSU, 1 Cooler, 1 native M.2 SSD slot. Cost: 45QB.";
+        desc = "<span style='color: #00ff66; font-weight: 800; text-shadow: 0 0 8px rgba(0, 255, 102, 0.6);'>MB (ITX):</span> ITX Motherboard. Range: 2.75 Tiles. Slots: 1 CPU, 2 RAM, 1 GPU, 1 PSU, 1 Cooler, 1 native M.2 SSD slot. Cost: 45QB.";
         break;
       case 'mb-atx':
-        desc = "MB (ATX): ATX Motherboard. Range: 3.75 Tiles. Slots: 1 CPU, 4 RAM, 3 GPU, 1 PSU, 2 Coolers. Cost: 100QB.";
+        desc = "<span style='color: #00ff66; font-weight: 800; text-shadow: 0 0 8px rgba(0, 255, 102, 0.6);'>MB (ATX):</span> ATX Motherboard. Range: 3.75 Tiles. Slots: 1 CPU, 4 RAM, 3 GPU, 1 PSU, 2 Coolers. Cost: 100QB.";
+        break;
+      case 'mb-eeatx':
+        desc = "<span style='color: #ff00aa; font-weight: 800; text-shadow: 0 0 8px rgba(255, 0, 170, 0.6);'>EE-ATX DUAL-SOCKET:</span> Enterprise Dual-Socket Board. Range: 4.75 Tiles. Slots: 2 CPU, 6 RAM, 4 GPU, 2 PSU, 3 Coolers. 40W base draw. Thermal Fusion (+25% CPU heat). Cost: 180QB.";
         break;
       case 'cpu':
-        desc = "CPU (I5): Core i5 Processor. Fires lasers at malware. Damage: +40, Wattage: 20W, Heat: 6 per shot. Cost: 30QB.";
+        desc = "<span style='color: #ff0055; font-weight: 800; text-shadow: 0 0 8px rgba(255, 0, 85, 0.6);'>CPU (I5):</span> Core i5 Processor. Single-target burst laser. Damage: +40, Wattage: 20W, Heat: 6 per shot. Cost: 30QB.";
         break;
       case 'cpu-extreme':
-        desc = "CPU (I9): Core i9 Extreme. Extreme processors. Damage: +100, Wattage: 40W, Heat: 14 per shot. Cost: 65QB.";
+        desc = "<span style='color: #ff00a0; font-weight: 800; text-shadow: 0 0 8px rgba(255, 0, 160, 0.6);'>CPU (I9):</span> Core i9 Extreme. Extreme single-target burst. Damage: +100, Wattage: 40W, Heat: 14 per shot. Cost: 65QB.";
+        break;
+      case 'cpu-ryzen5':
+        desc = "<span style='color: #ff6600; font-weight: 800; text-shadow: 0 0 8px rgba(255, 102, 0, 0.6);'>RYZEN 5:</span> Multi-threaded processor. Fires simultaneous laser beams at up to 3 targets at once! Damage: 15/target, Wattage: 15W, Heat: 6/cycle. Cost: 35QB.";
+        break;
+      case 'cpu-ryzen9':
+        desc = "<span style='color: #ff9900; font-weight: 800; text-shadow: 0 0 8px rgba(255, 153, 0, 0.6);'>RYZEN 9:</span> 3D V-Cache Master. Fires simultaneous laser beams at up to 5 targets at once! Damage: 35/target, Wattage: 30W, Heat: 10/cycle. Cost: 70QB.";
         break;
       case 'ram':
-        desc = "RAM: DDR5 Memory. Speeds up tower fire cooldown rate by +35%. Wattage: 5W, Heat: 1 per shot. Cost: 25QB.";
+        desc = "<span style='color: #a020f0; font-weight: 800; text-shadow: 0 0 8px rgba(160, 32, 240, 0.6);'>RAM:</span> DDR5 Memory. Speeds up tower fire cooldown rate by +35%. Wattage: 5W, Heat: 1 per shot. Cost: 25QB.";
         break;
       case 'gpu':
-        desc = "GPU: RTX Miner. Generates +1.0 Hash/sec passively, plus a combat bonus of +1 HASH upon malware deletion. Wattage: 35W, Heat: 18/s. Cost: 50QB.";
+        desc = "<span style='color: #ffb700; font-weight: 800; text-shadow: 0 0 8px rgba(255, 183, 0, 0.6);'>GPU:</span> RTX Miner. Generates +1.0 Hash/sec passively, plus a combat bonus of +1 HASH upon malware deletion. Wattage: 35W, Heat: 18/s. Cost: 50QB.";
         break;
       case 'ssd':
-        desc = "SSD: M.2 NVMe Storage. Generates +3.0 Chia/sec passively, plus a combat bonus of +2 CHIA upon malware deletion. Wattage: 10W, Heat: 2/s. Cost: 30QB.";
+        desc = "<span style='color: #00aaff; font-weight: 800; text-shadow: 0 0 8px rgba(0, 170, 255, 0.6);'>SSD:</span> M.2 NVMe Storage. Generates +3.0 Chia/sec passively, plus a combat bonus of +2 CHIA upon malware deletion. Wattage: 10W, Heat: 2/s. Cost: 30QB.";
         break;
       case 'pcie-m2':
-        desc = "M.2 ADAPTER: PCIE expansion card. Plugs into a PCIE (GPU) lane to add 4 extra M.2 slots for SSD installation. Wattage: 5W, Heat: 1/s. Cost: 25QB.";
+        desc = "<span style='color: #ff8800; font-weight: 800; text-shadow: 0 0 8px rgba(255, 136, 0, 0.6);'>M.2 ADAPTER:</span> PCIE expansion card. Plugs into a PCIE (GPU) lane to add 4 extra M.2 slots for SSD installation. Wattage: 5W, Heat: 1/s. Cost: 25QB.";
         break;
       case 'psu':
-        desc = "PSU: 80+ Platinum. Supplies up to 110W power and reduces total heat output by 35%. Cost: 40QB.";
+        desc = "<span style='color: #ffffff; font-weight: 800; text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);'>PSU:</span> 80+ Platinum. Supplies up to 110W power and reduces total heat output by 35%. Cost: 40QB.";
         break;
       case 'cooler':
-        desc = "COOLER: Liquid AIO. Active liquid loops that dissipate 40 units of heat per second. Wattage: 10W. Cost: 35QB.";
+        desc = "<span style='color: #00ffcc; font-weight: 800; text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);'>COOLER:</span> Liquid AIO. Active liquid loops that dissipate 40 units of heat per second. Wattage: 10W. Cost: 35QB.";
         break;
       case 'repair':
-        desc = "REPAIR: System Restore. Restores case HP to 100% and resets broken status. Cost: 40QB.";
+        desc = "<span style='color: #ff0055; font-weight: 800; text-shadow: 0 0 8px rgba(255, 0, 85, 0.6);'>REPAIR:</span> System Restore. Restores case HP to 100% and resets broken status. Cost: 40QB.";
         break;
       default:
         desc = "Select an item to view specifications.";
     }
-    bar.innerText = desc;
+    bar.innerHTML = desc;
   }
 
   clearSlotTooltip() {
@@ -485,6 +552,7 @@ class GameController {
       case 'case-gaming': return CONFIG.CASES.gaming.cost;
       case 'mb-mini': return CONFIG.MOTHERBOARDS['mini-itx'].cost;
       case 'mb-atx': return CONFIG.MOTHERBOARDS['atx'].cost;
+      case 'mb-eeatx': return CONFIG.MOTHERBOARDS['ee-atx'].cost;
       default: return CONFIG.COMPONENTS[slotName] ? CONFIG.COMPONENTS[slotName].cost : 40; // components or repair
     }
   }
@@ -551,11 +619,11 @@ class GameController {
         if (!tower.hasCase) {
           buildSuccess = tower.installCase(caseType);
         }
-      } else if (item === 'mb-mini' || item === 'mb-atx') {
-        const mbType = item === 'mb-mini' ? 'mini-itx' : 'atx';
+      } else if (item === 'mb-mini' || item === 'mb-atx' || item === 'mb-eeatx') {
+        const mbType = item === 'mb-mini' ? 'mini-itx' : (item === 'mb-eeatx' ? 'ee-atx' : 'atx');
         if (tower.hasCase && !tower.motherboard) {
-          if (mbType === 'atx' && tower.caseType === 'basic') {
-            console.log("ATX board too large for Mini Case!");
+          if ((mbType === 'atx' || mbType === 'ee-atx') && tower.caseType === 'basic') {
+            this.sysop?.showError("ATX Motherboard too large for Mini Case! Install an ATX Case first.");
           } else {
             buildSuccess = tower.installMotherboard(mbType);
           }
@@ -579,6 +647,15 @@ class GameController {
       }
       if (this.currentLevel && this.currentLevel.id === 2) {
         this.updateObjectivesUI();
+      }
+
+      // SYS-OP Intercept: Check if 2 CPUs are installed on EE-ATX board with 0 Coolers
+      if (tower && tower.motherboard && tower.motherboard.type === 'ee-atx') {
+        const cpuCount = tower.motherboard.installed.cpu.length;
+        const coolerCount = tower.motherboard.installed.cooler.length;
+        if (cpuCount >= 2 && coolerCount === 0 && this.sysop) {
+          this.sysop.showError("[FATAL ERROR] ARE YOU TRYING TO MELT THE ENTIRE CHASSIS?! You just put TWO high-draw processors onto an Enterprise Dual-Socket board with zero active cooling loops! The thermal sensors are literal puddles of plastic right now! Drop some Liquid AIO Coolers into those slots before the Kernel Node suffers permanent heat damage!");
+        }
       }
 
       // Hook: Notify tutorial build success
@@ -946,7 +1023,7 @@ class GameController {
 
     // Generate wave queue
     if (this.currentLevel) {
-      this.spawnQueue = this.currentLevel.waveSetup(this.waveNumber);
+      this.spawnQueue = this.currentLevel.waveSetup(this.waveNumber) || [];
     } else {
       this.spawnQueue = [];
       let glitches = 5 + this.waveNumber * 2;
@@ -1011,10 +1088,24 @@ class GameController {
     const path = paths[pathIndex];
     const newEnemy = new MalwareEnemy(type, path, pathIndex);
     this.enemies.push(newEnemy);
+
+    if (type === 'boss') {
+      this.showNotification("SYS-OP CRITICAL ALERT: RANSOMWARE TITAN INTRUSION DETECTED!");
+    }
   }
 
-  spawnProjectile(startX, startY, target, damage) {
-    const proj = new LaserProjectile(startX, startY, target, damage);
+  spawnShedEnemy(type, x, y, path, currentWaypointIndex, distTraveled) {
+    const enemyPath = path || ((this.currentLevel && this.currentLevel.paths) ? this.currentLevel.paths[0] : CONFIG.PATHS[0]);
+    const enemy = new MalwareEnemy(type, enemyPath);
+    enemy.x = x;
+    enemy.y = y;
+    enemy.currentWaypointIndex = currentWaypointIndex || 0;
+    enemy.distTraveled = distTraveled || 0;
+    this.enemies.push(enemy);
+  }
+
+  spawnProjectile(startX, startY, target, damage, color, showTrail, isRyzen) {
+    const proj = new LaserProjectile(startX, startY, target, damage, color, showTrail, isRyzen);
     this.projectiles.push(proj);
   }
 
@@ -1055,12 +1146,21 @@ class GameController {
     }
 
     // 1. Spawning
-    if (this.waveActive && this.spawnQueue.length > 0) {
+    if (this.waveActive && this.spawnQueue && this.spawnQueue.length > 0) {
       this.spawnTimer += dt;
-      if (this.spawnTimer >= this.spawnInterval) {
-        this.spawnTimer = 0;
-        const nextType = this.spawnQueue.shift();
-        this.spawnEnemy(nextType);
+      if (this.spawnQueue[0] === 'pause') {
+        if (this.spawnTimer >= 1800) { // 1.8 second dramatic break
+          this.spawnTimer = 0;
+          this.spawnQueue.shift(); // remove pause marker
+          this.showNotification("SYS-OP CRITICAL ALERT: SURPRISE TSUNAMI SWARM DETECTED!");
+        }
+      } else {
+        const currentInterval = (this.spawnQueue[0] === 'swarm') ? 80 : 350; // 80ms = 50 swarms in ~4s!
+        if (this.spawnTimer >= currentInterval) {
+          this.spawnTimer = 0;
+          const nextType = this.spawnQueue.shift();
+          this.spawnEnemy(nextType);
+        }
       }
     }
 
@@ -1167,6 +1267,15 @@ class GameController {
         this.enemies.splice(i, 1);
         this.updateHUD();
         
+        // SYS-OP Crash-Out Check if player uses Intel against Swarm in Sector 5
+        if (this.currentLevel && this.currentLevel.id === 5 && enemy.type === 'swarm' && this.sysop) {
+          const hasIntelActive = this.towers.some(t => t.status === 'active' && t.motherboard && t.motherboard.installed.cpu.some(c => c.type === 'cpu' || c.type === 'cpu-extreme'));
+          const hasRyzenActive = this.towers.some(t => t.status === 'active' && t.motherboard && t.motherboard.installed.cpu.some(c => c.type === 'cpu-ryzen5' || c.type === 'cpu-ryzen9'));
+          if (hasIntelActive && !hasRyzenActive) {
+            this.sysop.showError("[FATAL ERROR] WHAT ARE YOU DOING, OPERATOR?! Look at the grid! Your Intel laser is firing one single heavy beam at a swarm of a hundred microscopic worms! You're trying to swat mosquitoes with a rocket launcher! SELL THE INTEL CHIP AND SLAP AN AMD RYZEN IN THAT SOCKET RIGHT NOW BEFORE THE MALWARE CORRUPTS MY MEMORY SECTORS!");
+          }
+        }
+        
         if (this.kernelHp <= 0) {
           this.gameOver();
           return;
@@ -1236,7 +1345,7 @@ class GameController {
     // 4. Update Towers
     this.towers.forEach(tower => {
       const prevStatus = tower.status;
-      tower.update(dt, this.enemies, (sx, sy, t, d) => this.spawnProjectile(sx, sy, t, d));
+      tower.update(dt, this.enemies, (sx, sy, t, d, c) => this.spawnProjectile(sx, sy, t, d, c));
       
       // If status changed to throttled or overloaded, trigger SYS-OP warnings
       if (tower.status !== prevStatus && this.sysop) {
